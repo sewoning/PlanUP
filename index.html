@@ -3289,7 +3289,7 @@ function clearGcalSync() {
 
 // ── Campaign View ─────────────────────────────────────────────
 const cpState = { editCampId: null, editMediaId: null, mediaCampId: null };
-let cpFilter = 'all';       // 'all' | 'live' | 'ended'
+let cpFilter = 'all';       // 'all' | 'before' | 'live' | 'ended'
 let cpSort = 'manual';      // 'manual' | 'start_asc' | 'start_desc' (캠페인 시작일 기준)
 function setCpSort(key) {
   cpSort = key;
@@ -4186,6 +4186,7 @@ function renderCampaignView() {
   tbody.innerHTML = '';
 
   // Status counts
+  const beforeCamps = state.campaigns.filter(c => !c.liveStatus);
   const liveCamps = state.campaigns.filter(c => c.liveStatus === 'live');
   const endedCamps = state.campaigns.filter(c => c.liveStatus === 'ended');
   const activeCamps = state.campaigns.filter(c => c.liveStatus !== 'ended'); // "전체" = 라이브 종료 제외
@@ -4208,6 +4209,7 @@ function renderCampaignView() {
       <button class="cpf-tab${dateSortActive?' active':''}" onclick="toggleCpDateSort()" title="클릭할 때마다 오름차순/내림차순 전환">${dateSortLabel}</button>`;
     filterArea.innerHTML = `
       <button class="cpf-tab${cpFilter==='all'?' active':''}" onclick="setCpFilter('all')">전체 <span class="cpf-count">${activeCamps.length}</span></button>
+      <button class="cpf-tab${cpFilter==='before'?' active':''}" onclick="setCpFilter('before')">라이브 전 <span class="cpf-count">${beforeCamps.length}</span></button>
       <button class="cpf-tab${cpFilter==='live'?' active':''}" onclick="setCpFilter('live')">라이브 중 <span class="cpf-count">${liveCamps.length}</span></button>
       <button class="cpf-tab${cpFilter==='ended'?' active':''}" onclick="setCpFilter('ended')">라이브 종료 <span class="cpf-count">${endedCamps.length}</span></button>
       ${sortControlHtml}
@@ -4255,7 +4257,7 @@ function renderCampaignView() {
   }
 
   // Which campaigns to show
-  let visibleCamps = cpFilter === 'live' ? liveCamps : cpFilter === 'ended' ? endedCamps : activeCamps;
+  let visibleCamps = cpFilter === 'before' ? beforeCamps : cpFilter === 'live' ? liveCamps : cpFilter === 'ended' ? endedCamps : activeCamps;
 
   // Overlap focus (only in ended view)
   let overlapMap = {};
@@ -4305,6 +4307,7 @@ function renderCampaignView() {
     empty.style.display = 'none';
     const etr = document.createElement('tr');
     etr.innerHTML = `<td colspan="8" style="text-align:center;padding:40px 24px;color:var(--gray-400);font-size:13px;">${
+      cpFilter === 'before' ? '라이브 전인 캠페인이 없어요' :
       cpFilter === 'live' ? '라이브 중인 캠페인이 없어요' :
       cpFilter === 'ended' ? '라이브 종료된 캠페인이 없어요' :
       state.campaigns.length ? '진행 중인 캠페인이 없어요 (모두 라이브 종료 상태예요)' : '캠페인이 없어요'
