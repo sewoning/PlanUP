@@ -6,6 +6,7 @@
 <title>PlanUP</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -401,6 +402,14 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 @media(max-width:520px){ .calendar-header{flex-wrap:wrap;gap:8px;padding:12px 14px} .ctf-btn,.vm-btn{padding:0 10px;font-size:12px} }
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:10px} ::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
 
+/* ── Auth Gate ── */
+.auth-gate { position:fixed; inset:0; z-index:1000; background:var(--gray-100); display:flex; align-items:center; justify-content:center; padding:20px; }
+.auth-card { background:#fff; border-radius:var(--r-xl); box-shadow:var(--shadow-lg); padding:32px 28px; width:100%; max-width:360px; display:flex; flex-direction:column; gap:14px; }
+.auth-logo { font-size:20px; font-weight:700; text-align:center; margin-bottom:2px; color:var(--gray-900); }
+.auth-title { font-size:13px; font-weight:600; color:var(--gray-500); text-align:center; margin-bottom:4px; }
+.auth-error { font-size:12px; color:var(--red); min-height:16px; text-align:center; }
+.auth-hint { font-size:11px; color:var(--gray-400); text-align:center; margin-top:-6px; }
+
 /* ── Campaign View ── */
 .campaign-view{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;}
 .budget-calc-view{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;max-width:480px;}
@@ -750,7 +759,28 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ── Auth Gate ── -->
+<div class="auth-gate" id="authGate" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">📅 PlanUP</div>
+    <div class="auth-title" id="authTitle">로그인</div>
+    <div class="form-group">
+      <label class="form-label">닉네임</label>
+      <input class="form-input" id="authNickname" placeholder="닉네임" maxlength="20" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input class="form-input" id="authPassword" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button class="btn btn-primary" id="authSubmitBtn" onclick="authSubmit()" style="width:100%">로그인</button>
+    <button class="btn btn-ghost" id="authToggleBtn" onclick="authToggleMode()" style="width:100%">계정이 없으신가요? 회원가입</button>
+    <div class="auth-hint">닉네임과 비밀번호는 이 팀 전용 저장 공간을 구분하는 용도예요</div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none">
 
 <!-- ── Header ── -->
 <header class="header">
@@ -787,6 +817,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </nav>
   </div>
   <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" onclick="logout()" title="로그아웃">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>로그아웃</span>
+    </button>
     <button class="btn btn-ghost btn-sm" id="gcalSyncHeaderBtn" onclick="openGcalModal()" title="구글 캘린더 연동">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span>구글 캘린더</span>
@@ -1361,6 +1395,12 @@ const WEEK_START_H = 8, WEEK_END_H = 22, HOUR_H = 60;
 const DOWS = ['일','월','화','수','목','금','토'];
 const MONTH_NAMES = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
+// ── Auth (Supabase) ──────────────────────────────────────────────
+const SUPABASE_URL = 'https://awtdpyoiecymhnwjvtki.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_GgvVhU2ecDXearjojyz-6Q_Yxlnp-TB';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let authUser = null; // 로그인한 사용자 (supabase auth user 객체)
+
 // ── State ──────────────────────────────────────────────────────
 let state = {
   events: [], tasks: [], memos: [], campaigns: [],
@@ -1572,6 +1612,7 @@ function save() {
   localStorage.setItem('cal_memos', JSON.stringify(state.memos));
   localStorage.setItem('cal_memo_folders', JSON.stringify(state.memoFolders));
   localStorage.setItem('cal_campaigns', JSON.stringify(state.campaigns));
+  syncRemote();
 }
 function load() {
   try {
@@ -1586,6 +1627,116 @@ function load() {
     const cp = localStorage.getItem('cal_campaigns');
     if(cp) state.campaigns = JSON.parse(cp);
   } catch(e){}
+}
+
+// ── Auth & 원격 동기화 (Supabase) ─────────────────────────────────
+const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns'];
+let authMode = 'login'; // 'login' | 'signup'
+
+// 닉네임은 실제 이메일이 아니라, Supabase Auth가 요구하는 이메일 형식으로 변환해서만 내부적으로 사용 (실제 메일 발송 없음)
+function nicknameToEmail(nickname) {
+  const clean = nickname.trim().toLowerCase();
+  const b64 = btoa(unescape(encodeURIComponent(clean))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return `u${b64}@planup.local`;
+}
+
+function authToggleMode() {
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  document.getElementById('authTitle').textContent = authMode === 'login' ? '로그인' : '회원가입';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'login' ? '로그인' : '회원가입';
+  document.getElementById('authToggleBtn').textContent = authMode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인';
+  document.getElementById('authError').textContent = '';
+}
+
+async function authSubmit() {
+  const nickname = document.getElementById('authNickname').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if(!nickname) { errEl.textContent = '닉네임을 입력해주세요'; return; }
+  if(!password || password.length < 6) { errEl.textContent = '비밀번호는 6자 이상이어야 해요'; return; }
+  const email = nicknameToEmail(nickname);
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+  try {
+    if(authMode === 'signup') {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      authUser = data.user;
+      localStorage.setItem('planup_nickname', nickname);
+      await finishLogin(true);
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+      authUser = data.user;
+      localStorage.setItem('planup_nickname', nickname);
+      await finishLogin(false);
+    }
+  } catch(e) {
+    errEl.textContent = authMode === 'signup'
+      ? '가입에 실패했어요 (이미 있는 닉네임일 수 있어요)'
+      : '로그인에 실패했어요. 닉네임/비밀번호를 확인해주세요';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function collectLocalData() {
+  const data = {};
+  SYNC_KEYS.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
+  return data;
+}
+
+async function pushRemoteData() {
+  if(!authUser) return;
+  const data = collectLocalData();
+  try { await sb.from('user_data').upsert({ id: authUser.id, data, updated_at: new Date().toISOString() }); } catch(e) {}
+}
+
+async function pullRemoteData() {
+  if(!authUser) return;
+  try {
+    const { data, error } = await sb.from('user_data').select('data').eq('id', authUser.id).maybeSingle();
+    if(error || !data || !data.data) return;
+    SYNC_KEYS.forEach(k => { if(data.data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data.data[k])); });
+  } catch(e) {}
+}
+
+// save() 호출 뒤 로그인 상태면 원격에도 반영 (짧은 디바운스로 너무 잦은 업로드 방지)
+let syncRemoteTimer = null;
+function syncRemote() {
+  if(!authUser) return;
+  clearTimeout(syncRemoteTimer);
+  syncRemoteTimer = setTimeout(pushRemoteData, 1200);
+}
+
+// 로그인/가입 성공 직후: 신규 가입이면 지금 로컬 데이터를 그대로 올리고, 기존 계정 로그인이면 원격 데이터로 덮어쓴 뒤 앱 시작
+async function finishLogin(isNewSignup) {
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('appRoot').style.display = '';
+  if(isNewSignup) await pushRemoteData();
+  else await pullRemoteData();
+  startApp();
+}
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if(session && session.user) {
+    authUser = session.user;
+    document.getElementById('authGate').style.display = 'none';
+    document.getElementById('appRoot').style.display = '';
+    await pullRemoteData();
+    startApp();
+  } else {
+    document.getElementById('authGate').style.display = 'flex';
+    document.getElementById('appRoot').style.display = 'none';
+  }
+}
+
+function logout() {
+  sb.auth.signOut();
+  authUser = null;
+  location.reload();
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -4442,23 +4593,27 @@ function renderCampaignView() {
 }
 
 // ── Init ───────────────────────────────────────────────────────
-load();
+function startApp() {
+  load();
 
-// 기존 이벤트 마이그레이션: 제목 정리 + 재택 포함 이벤트 표시
-(function migrateEvents() {
-  let dirty = false;
-  state.events.forEach(ev => {
-    const { title, remoteWork } = classifyGcalTitle(ev.title);
-    if(title !== ev.title) { ev.title = title; dirty = true; }
-    if(remoteWork && !ev.remoteWork) { ev.remoteWork = true; dirty = true; }
-  });
-  if(dirty) save();
-})();
+  // 기존 이벤트 마이그레이션: 제목 정리 + 재택 포함 이벤트 표시
+  (function migrateEvents() {
+    let dirty = false;
+    state.events.forEach(ev => {
+      const { title, remoteWork } = classifyGcalTitle(ev.title);
+      if(title !== ev.title) { ev.title = title; dirty = true; }
+      if(remoteWork && !ev.remoteWork) { ev.remoteWork = true; dirty = true; }
+    });
+    if(dirty) save();
+  })();
 
-state.selectedDate = todayYMD_();
-renderAll();
-autoSyncGcal();
-mmSetupDragDrop();
+  state.selectedDate = todayYMD_();
+  renderAll();
+  autoSyncGcal();
+  mmSetupDragDrop();
+}
+
+initAuth();
 </script>
 </body>
 </html>
