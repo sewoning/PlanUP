@@ -313,6 +313,10 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .home-stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
 .home-stat-card { background:#fff; border-radius:var(--r-lg); box-shadow:var(--shadow-sm); padding:20px 22px; display:flex; flex-direction:column; gap:8px; }
 .home-stat-label { font-size:12px; color:var(--gray-500); font-weight:600; }
+.home-stat-label-row { display:flex; align-items:center; justify-content:space-between; gap:4px; }
+.home-stat-month-nav { display:flex; gap:2px; flex-shrink:0; }
+.home-stat-month-nav button { width:18px; height:18px; border:none; background:transparent; cursor:pointer; color:var(--gray-400); font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:4px; font-family:inherit; transition:background .12s,color .12s; }
+.home-stat-month-nav button:hover { background:var(--gray-100); color:var(--gray-700); }
 .home-stat-value { font-size:22px; font-weight:700; color:var(--gray-900); letter-spacing:-.3px; }
 .home-stat-sub { font-size:11px; color:var(--gray-400); font-weight:600; }
 .home-dash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; align-items:start; }
@@ -2982,23 +2986,32 @@ function renderHomeUrgentBanner() {
     + renderCol('🏁', '캠페인 종료', endItems, 'end', d => d === 0);
 }
 
+let homeBudgetMonth = null; // 'YYYY-MM' — null이면 이번 달로 초기화
+
+function shiftHomeBudgetMonth(delta) {
+  const [y,m] = homeBudgetMonth.split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  homeBudgetMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderHomeStats();
+}
+
 function renderHomeStats() {
   const row = document.getElementById('homeStatsRow');
   if(!row) return;
   const today = todayYMD_();
-  const [y,m] = today.split('-').map(Number);
-  const monthStart = `${y}-${String(m).padStart(2,'0')}-01`;
-  const monthEnd = `${y}-${String(m).padStart(2,'0')}-${String(new Date(y,m,0).getDate()).padStart(2,'0')}`;
+  if(!homeBudgetMonth) homeBudgetMonth = today.slice(0,7);
+  const [by, bm] = homeBudgetMonth.split('-').map(Number);
 
-  let totalBudget=0;
-  const activeCampIds = new Set();
+  // 현재 운영중인(라이브 중) 캠페인 개수 — 캠페인현황의 "라이브 중" 탭과 동일 기준
+  const liveCampCount = state.campaigns.filter(c => c.liveStatus === 'live').length;
+
+  // 월별 총 매체비 — 정산은 종료일 기준 월에 하므로, 매체 종료일이 선택한 월에 속하면 그 달 매체비로 집계
+  let totalBudget = 0;
   state.campaigns.forEach(c => {
-    c.mediaRows.forEach(row => {
-      if(!row.startDate || !row.endDate) return;
-      if(row.startDate <= monthEnd && row.endDate >= monthStart) {
-        totalBudget += Number(row.amount) || 0;
-        activeCampIds.add(c.id);
-      }
+    c.mediaRows.forEach(m => {
+      if(!m.endDate) return;
+      const [ey, em] = m.endDate.split('-').map(Number);
+      if(ey === by && em === bm) totalBudget += Number(m.amount) || 0;
     });
   });
   const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
@@ -3012,11 +3025,17 @@ function renderHomeStats() {
 
   row.innerHTML = `
     <div class="home-stat-card">
-      <div class="home-stat-label">이번 달 운영 캠페인</div>
-      <div class="home-stat-value">${activeCampIds.size}건</div>
+      <div class="home-stat-label">현재 운영중인 캠페인</div>
+      <div class="home-stat-value">${liveCampCount}건</div>
     </div>
     <div class="home-stat-card">
-      <div class="home-stat-label">이번 달 총 매체비</div>
+      <div class="home-stat-label-row">
+        <div class="home-stat-label">${bm}월 총 매체비</div>
+        <div class="home-stat-month-nav">
+          <button onclick="shiftHomeBudgetMonth(-1)" title="이전 달">‹</button>
+          <button onclick="shiftHomeBudgetMonth(1)" title="다음 달">›</button>
+        </div>
+      </div>
       <div class="home-stat-value">${fmtWon(totalBudget)}</div>
     </div>
     <div class="home-stat-card">
