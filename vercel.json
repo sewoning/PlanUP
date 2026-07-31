@@ -1,9 +1,11 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.html", "use": "@vercel/static" }
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "api/gcal-ics.js", "use": "@vercel/node" }
   ],
   "routes": [
+    { "src": "/api/gcal-ics", "dest": "/api/gcal-ics.js" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

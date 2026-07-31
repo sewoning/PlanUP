@@ -3114,7 +3114,7 @@ function renderAll() {
 }
 
 // ── Google Calendar iCal Sync ──────────────────────────────────
-const GCAL_PROXY = 'https://api.allorigins.win/raw?url=';
+const GCAL_PROXY = '/api/gcal-ics?url=';
 
 function openGcalModal() {
   const url = localStorage.getItem('cal_gcal_url') || '';
@@ -3143,7 +3143,7 @@ function closeGcalModal() {
   document.getElementById('gcalModal').classList.remove('open');
 }
 
-// 무료 CORS 프록시(allorigins)가 가끔 타임아웃되는 경우가 있어 몇 번 재시도한다.
+// 네트워크가 가끔 타임아웃되는 경우가 있어 몇 번 재시도한다.
 async function fetchICS(url) {
   const ATTEMPTS = 3, TIMEOUT_MS = 12000;
   for(let i = 0; i < ATTEMPTS; i++) {
@@ -3160,10 +3160,7 @@ async function fetchICS(url) {
       clearTimeout(timer);
     }
   }
-  // 프록시가 계속 실패하면 마지막으로 직접 요청도 시도 (대부분 CORS로 막히지만 혹시 모를 경우 대비)
-  const resp2 = await fetch(url, {cache:'no-store'});
-  if(!resp2.ok) throw new Error('direct_fail');
-  return await resp2.text();
+  throw new Error('sync_fail');
 }
 
 async function syncGcal() {
