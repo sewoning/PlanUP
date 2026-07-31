@@ -3310,13 +3310,14 @@ function clearGcalSync() {
 // ── Campaign View ─────────────────────────────────────────────
 const cpState = { editCampId: null, editMediaId: null, mediaCampId: null };
 let cpFilter = 'all';       // 'all' | 'before' | 'live' | 'ended'
-let cpSort = 'manual';      // 'manual' | 'start_asc' | 'start_desc' (캠페인 시작일 기준)
+let cpSort = 'manual';      // 'manual' | 'start_asc' | 'start_desc' | 'end_asc' | 'end_desc'
 function setCpSort(key) {
   cpSort = key;
   renderCampaignView();
 }
-function toggleCpDateSort() {
-  cpSort = cpSort === 'start_asc' ? 'start_desc' : 'start_asc';
+function toggleCpDateSort(field) {
+  const ascKey = field + '_asc', descKey = field + '_desc';
+  cpSort = cpSort === ascKey ? descKey : ascKey;
   renderCampaignView();
 }
 let cpOverlapFocus = null;  // campId that is the overlap reference, or null
@@ -4221,12 +4222,15 @@ function renderCampaignView() {
       if(statusVal(m.liveEnd) >= 1) doneLiveEnd++;
       if(statusVal(m.report) >= 1) doneReport++;
     }));
-    const dateSortActive = cpSort === 'start_asc' || cpSort === 'start_desc';
-    const dateSortLabel = cpSort === 'start_asc' ? '시작일 ↑' : cpSort === 'start_desc' ? '시작일 ↓' : '시작일';
+    const startSortActive = cpSort === 'start_asc' || cpSort === 'start_desc';
+    const endSortActive = cpSort === 'end_asc' || cpSort === 'end_desc';
+    const startSortLabel = cpSort === 'start_asc' ? '시작일 ↑' : cpSort === 'start_desc' ? '시작일 ↓' : '시작일';
+    const endSortLabel = cpSort === 'end_asc' ? '종료일 ↑' : cpSort === 'end_desc' ? '종료일 ↓' : '종료일';
     const sortControlHtml = cpFilter === 'ended' ? '' : `
       <span style="color:var(--gray-300);margin:0 2px">|</span>
       <button class="cpf-tab${cpSort==='manual'?' active':''}" onclick="setCpSort('manual')" title="드래그로 지정한 순서">기본순</button>
-      <button class="cpf-tab${dateSortActive?' active':''}" onclick="toggleCpDateSort()" title="클릭할 때마다 오름차순/내림차순 전환">${dateSortLabel}</button>`;
+      <button class="cpf-tab${startSortActive?' active':''}" onclick="toggleCpDateSort('start')" title="클릭할 때마다 오름차순/내림차순 전환">${startSortLabel}</button>
+      <button class="cpf-tab${endSortActive?' active':''}" onclick="toggleCpDateSort('end')" title="클릭할 때마다 오름차순/내림차순 전환">${endSortLabel}</button>`;
     filterArea.innerHTML = `
       <button class="cpf-tab${cpFilter==='all'?' active':''}" onclick="setCpFilter('all')">전체 <span class="cpf-count">${activeCamps.length}</span></button>
       <button class="cpf-tab${cpFilter==='before'?' active':''}" onclick="setCpFilter('before')">라이브 전 <span class="cpf-count">${beforeCamps.length}</span></button>
@@ -4348,14 +4352,15 @@ function renderCampaignView() {
       if(!pb) return -1;
       return pa.start < pb.start ? -1 : pa.start > pb.start ? 1 : 0;
     });
-  } else if(cpSort === 'start_asc' || cpSort === 'start_desc') {
-    const dir = cpSort === 'start_asc' ? 1 : -1;
+  } else if(cpSort === 'start_asc' || cpSort === 'start_desc' || cpSort === 'end_asc' || cpSort === 'end_desc') {
+    const field = cpSort.startsWith('start') ? 'start' : 'end';
+    const dir = cpSort.endsWith('asc') ? 1 : -1;
     visibleCamps = [...visibleCamps].sort((a, b) => {
       const pa = getCampaignPeriod(a), pb = getCampaignPeriod(b);
       if(!pa && !pb) return 0;
       if(!pa) return 1;
       if(!pb) return -1;
-      return pa.start < pb.start ? -dir : pa.start > pb.start ? dir : 0;
+      return pa[field] < pb[field] ? -dir : pa[field] > pb[field] ? dir : 0;
     });
   }
 
@@ -4403,7 +4408,7 @@ function renderCampaignView() {
       budgetColHtml = `<span class="ct-budget-total" style="color:var(--gray-400)" title="계약 총예산 미입력 · 매체 금액 합계">${fmtWon(mediaSum)}</span>`;
     }
 
-    const campOrderFixed = cpFilter === 'ended' || cpSort === 'start_asc' || cpSort === 'start_desc'; // 자동 정렬 중엔 드래그 순서 변경 불가
+    const campOrderFixed = cpFilter === 'ended' || cpSort !== 'manual'; // 자동 정렬 중엔 드래그 순서 변경 불가
     const gtr = document.createElement('tr');
     gtr.className = 'ct-group-row';
     gtr.innerHTML = `
