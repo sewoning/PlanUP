@@ -342,9 +342,9 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 /* ── Task status btns ── */
 .status-select-group { display:flex; gap:6px; }
 .status-btn { flex:1; height:38px; border:1.5px solid var(--gray-200); background:#fff; border-radius:var(--r-sm); cursor:pointer; font-size:12px; font-weight:600; font-family:inherit; color:var(--gray-500); transition:all .15s; }
-.status-btn.s-todo { border-color:var(--gray-400); background:var(--gray-100); color:var(--gray-700); }
+.status-btn.s-todo { border-color:var(--green); background:var(--success-bg); color:var(--green); }
 .status-btn.s-inprogress { border-color:var(--blue); background:var(--blue-light); color:var(--blue); }
-.status-btn.s-done { border-color:var(--green); background:var(--success-bg); color:var(--green); }
+.status-btn.s-done { border-color:var(--gray-400); background:var(--gray-100); color:var(--gray-700); }
 
 /* ── Toast ── */
 .toast-wrap { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:500; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
@@ -416,6 +416,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .ct-budget-check{font-size:10px;font-weight:700;white-space:nowrap;}
 .ct-budget-check.ok{color:var(--green);}
 .ct-budget-check.warn{color:var(--red);}
+.ct-budget-total{font-size:11px;font-weight:700;color:var(--gray-700);white-space:nowrap;}
 .ct-period-mini{font-size:11px;color:var(--gray-500);white-space:nowrap;}
 .ct-add-media-btn{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border:1.5px dashed var(--gray-300);border-radius:var(--r-sm);background:transparent;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap;}
 .ct-add-media-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-light);}
@@ -2234,8 +2235,8 @@ function renderSheet() {
   const tabRow=document.getElementById('sheetTabRow');
   tabRow.innerHTML=groups.map(g=>{
     const active=state.sheetTaskTab===g.status;
-    const dotColor=g.status==='done'?'var(--green)':'var(--gray-400)';
-    const countStyle=g.status==='done'?'background:var(--success-bg);color:var(--green)':'background:var(--gray-200);color:var(--gray-600)';
+    const dotColor=g.status==='todo'?'var(--green)':'var(--gray-400)';
+    const countStyle=g.status==='todo'?'background:var(--success-bg);color:var(--green)':'background:var(--gray-200);color:var(--gray-600)';
     return `<button class="sheet-tab-btn${active?' active':''}" onclick="state.sheetTaskTab='${g.status}';renderSheet()"><span class="sheet-tab-dot" style="background:${dotColor}"></span>${g.label}<span class="kanban-count" style="${countStyle}">${g.tasks.length}</span></button>`;
   }).join('');
 
@@ -4388,14 +4389,17 @@ function renderCampaignView() {
       ? '<span style="color:var(--gray-300);font-size:11px">-</span>'
       : `<span class="ct-stat-mini${done===total?' ct-stat-mini-done':''}">${done}/${total}</span>`;
 
-    // 계약 총예산 대비 매체 합계 검증 (계약 총예산을 입력해둔 캠페인만)
+    // 총예산 표시: 계약 총예산이 있으면 그 금액 + 매체 합계와 일치하는지 검증, 없으면 매체 합계라도 보여줌
+    const mediaSum = camp.mediaRows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
     let budgetCheckHtml = '';
     if(camp.totalBudget) {
-      const mediaSum = camp.mediaRows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
       const diff = mediaSum - camp.totalBudget;
-      budgetCheckHtml = diff === 0
-        ? `<span class="ct-budget-check ok" title="매체 합계와 계약 총예산이 일치해요">✓ 예산일치</span>`
+      const checkHtml = diff === 0
+        ? `<span class="ct-budget-check ok" title="매체 합계와 계약 총예산이 일치해요">✓</span>`
         : `<span class="ct-budget-check warn" title="매체 합계 ${fmtWon(mediaSum)} / 계약 ${fmtWon(camp.totalBudget)}">⚠️ ${diff > 0 ? '+' : ''}${fmtWon(diff)}</span>`;
+      budgetCheckHtml = `<span class="ct-budget-total">${fmtWon(camp.totalBudget)}</span> ${checkHtml}`;
+    } else if(mediaSum > 0) {
+      budgetCheckHtml = `<span class="ct-budget-total" style="color:var(--gray-400)" title="계약 총예산 미입력 · 매체 금액 합계">${fmtWon(mediaSum)}</span>`;
     }
 
     const campOrderFixed = cpFilter === 'ended' || cpSort === 'start_asc' || cpSort === 'start_desc'; // 자동 정렬 중엔 드래그 순서 변경 불가
