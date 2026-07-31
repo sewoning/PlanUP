@@ -3284,9 +3284,15 @@ function applyGcalEvents(parsed) {
   return newEvents.length;
 }
 
+// 매일 오전 9시 이후, 그날 처음 앱을 열 때 한 번 자동으로 동기화한다.
+// (오전 9시 전에 열면 그 날은 아직 자동 동기화하지 않고, 같은 날 이미 동기화했으면 다시 하지 않음)
 async function autoSyncGcal() {
   const url = localStorage.getItem('cal_gcal_url');
   if(!url) return;
+  const now = new Date();
+  if(now.getHours() < 9) return;
+  const lastSyncRaw = localStorage.getItem('cal_gcal_last_sync');
+  if(lastSyncRaw && new Date(Number(lastSyncRaw)).toDateString() === now.toDateString()) return;
   try {
     const icsText = await fetchICS(url);
     const parsed = parseICS(icsText);
