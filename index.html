@@ -507,6 +507,8 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .cp-alert-bar{background:var(--warn-bg);border-radius:var(--r-md);padding:10px 16px;display:flex;flex-direction:column;gap:6px;margin-bottom:2px;}
 .cp-alert-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:500;color:var(--warn-text);}
 .cp-alert-row b{font-weight:700;}
+.cp-alert-row.today{color:var(--red);}
+.cp-alert-row.today b{color:var(--red);}
 
 /* ── Modal type tabs ── */
 .modal-type-tabs{display:flex;background:var(--gray-100);border-radius:var(--r-sm);padding:3px;margin-bottom:20px;}
@@ -4238,15 +4240,16 @@ function renderCampaignView() {
       <span class="cst-chip cst-done">게재보고 ${doneReport}/${totalMedia}</span>`;
   }
 
-  // D-1 알림: 캠페인 라이브 시작/종료 하루 전 안내 배너.
+  // D-DAY/D-1 알림: 캠페인 라이브 시작/종료가 오늘이거나 하루 전인 경우 안내 배너.
   // 내일이 주말로 이어지면(예: 오늘이 금요일) 주말 동안은 확인을 안 할 수 있으니
   // 다음 평일 전까지(토/일 포함)의 날짜를 전부 lookahead에 포함한다.
   const alertBar = document.getElementById('cpAlertBar');
   if(alertBar) {
-    const lookaheadDates = [];
+    const todayYmd = todayYMD_();
+    const lookaheadDates = [todayYmd];
     let n = 1;
     while(true) {
-      const d = addDays(todayYMD_(), n);
+      const d = addDays(todayYmd, n);
       lookaheadDates.push(d);
       const dow = new Date(d + 'T00:00:00').getDay();
       n++;
@@ -4259,11 +4262,11 @@ function renderCampaignView() {
       if(lookaheadDates.includes(p.start)) (startingMap[p.start] = startingMap[p.start] || []).push(c.name);
       if(lookaheadDates.includes(p.end)) (endingMap[p.end] = endingMap[p.end] || []).push(c.name);
     });
-    const fmtAlertDate = ymd => `${ymd.replace(/-/g,'.').slice(5)}(${DOWS[new Date(ymd + 'T00:00:00').getDay()]})`;
+    const fmtAlertDate = ymd => ymd === todayYmd ? '오늘' : `${ymd.replace(/-/g,'.').slice(5)}(${DOWS[new Date(ymd + 'T00:00:00').getDay()]})`;
     const rows = [];
     lookaheadDates.forEach(d => {
-      if(startingMap[d]) rows.push(`<div class="cp-alert-row">🔔 <span>${fmtAlertDate(d)} 라이브 시작:</span> <b>${startingMap[d].map(escHtml).join(', ')}</b></div>`);
-      if(endingMap[d]) rows.push(`<div class="cp-alert-row">🔔 <span>${fmtAlertDate(d)} 라이브 종료:</span> <b>${endingMap[d].map(escHtml).join(', ')}</b></div>`);
+      if(startingMap[d]) rows.push(`<div class="cp-alert-row${d===todayYmd?' today':''}">🔔 <span>${fmtAlertDate(d)} 라이브 시작:</span> <b>${startingMap[d].map(escHtml).join(', ')}</b></div>`);
+      if(endingMap[d]) rows.push(`<div class="cp-alert-row${d===todayYmd?' today':''}">🔔 <span>${fmtAlertDate(d)} 라이브 종료:</span> <b>${endingMap[d].map(escHtml).join(', ')}</b></div>`);
     });
     if(rows.length) {
       alertBar.style.display = '';
