@@ -3016,11 +3016,11 @@ function renderHomeStats() {
   });
   const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
 
-  // 세팅/라이브 체크가 아직 안 끝난 매체 (라이브 종료된 캠페인은 제외)
+  // 세팅이 아직 안 끝난 매체가 하나라도 있는 캠페인 수 (라이브 종료된 캠페인은 제외)
   let pendingSetupCount = 0;
   state.campaigns.forEach(c => {
     if(c.liveStatus === 'ended') return;
-    c.mediaRows.forEach(m => { if(statusVal(m.setup) < 1) pendingSetupCount++; });
+    if(c.mediaRows.some(m => statusVal(m.setup) < 1)) pendingSetupCount++;
   });
 
   row.innerHTML = `
@@ -3039,7 +3039,7 @@ function renderHomeStats() {
       <div class="home-stat-value">${fmtWon(totalBudget)}</div>
     </div>
     <div class="home-stat-card">
-      <div class="home-stat-label">세팅 미완료 매체</div>
+      <div class="home-stat-label">세팅 미완료 캠페인</div>
       <div class="home-stat-value">${pendingSetupCount}건</div>
     </div>
     <div class="home-stat-card">
