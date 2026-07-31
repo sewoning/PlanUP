@@ -1037,6 +1037,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
           <thead>
             <tr>
               <th class="ct-th-status" style="width:180px">캠페인</th>
+              <th class="ct-th-status" style="width:110px">총예산</th>
               <th class="ct-th-status" style="width:150px">매체</th>
               <th class="ct-th-status" style="width:160px">기간</th>
               <th class="ct-th-status" style="width:84px">세팅</th>
@@ -4326,7 +4327,7 @@ function renderCampaignView() {
   if(!visibleCamps.length) {
     empty.style.display = 'none';
     const etr = document.createElement('tr');
-    etr.innerHTML = `<td colspan="8" style="text-align:center;padding:40px 24px;color:var(--gray-400);font-size:13px;">${
+    etr.innerHTML = `<td colspan="9" style="text-align:center;padding:40px 24px;color:var(--gray-400);font-size:13px;">${
       cpFilter === 'before' ? '라이브 전인 캠페인이 없어요' :
       cpFilter === 'live' ? '라이브 중인 캠페인이 없어요' :
       cpFilter === 'ended' ? '라이브 종료된 캠페인이 없어요' :
@@ -4391,15 +4392,15 @@ function renderCampaignView() {
 
     // 총예산 표시: 계약 총예산이 있으면 그 금액 + 매체 합계와 일치하는지 검증, 없으면 매체 합계라도 보여줌
     const mediaSum = camp.mediaRows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
-    let budgetCheckHtml = '';
+    let budgetColHtml = '<span style="color:var(--gray-300);font-size:12px">-</span>';
     if(camp.totalBudget) {
       const diff = mediaSum - camp.totalBudget;
       const checkHtml = diff === 0
         ? `<span class="ct-budget-check ok" title="매체 합계와 계약 총예산이 일치해요">✓</span>`
         : `<span class="ct-budget-check warn" title="매체 합계 ${fmtWon(mediaSum)} / 계약 ${fmtWon(camp.totalBudget)}">⚠️ ${diff > 0 ? '+' : ''}${fmtWon(diff)}</span>`;
-      budgetCheckHtml = `<span class="ct-budget-total">${fmtWon(camp.totalBudget)}</span> ${checkHtml}`;
+      budgetColHtml = `<span class="ct-budget-total">${fmtWon(camp.totalBudget)}</span> ${checkHtml}`;
     } else if(mediaSum > 0) {
-      budgetCheckHtml = `<span class="ct-budget-total" style="color:var(--gray-400)" title="계약 총예산 미입력 · 매체 금액 합계">${fmtWon(mediaSum)}</span>`;
+      budgetColHtml = `<span class="ct-budget-total" style="color:var(--gray-400)" title="계약 총예산 미입력 · 매체 금액 합계">${fmtWon(mediaSum)}</span>`;
     }
 
     const campOrderFixed = cpFilter === 'ended' || cpSort === 'start_asc' || cpSort === 'start_desc'; // 자동 정렬 중엔 드래그 순서 변경 불가
@@ -4416,10 +4417,8 @@ function renderCampaignView() {
         <button class="cp-live-badge ${lsBadgeClass}" onclick="toggleCampaignLive('${camp.id}')" title="${lsTitle}">${lsBadgeText}</button>
         ${overlapTagHtml}
       </div></td>
-      <td><div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <span class="ct-stat-mini" style="color:var(--gray-500);font-weight:600">${n > 0 ? n + '개 매체' : '-'}</span>
-        ${budgetCheckHtml}
-      </div></td>
+      <td><div style="display:flex;flex-direction:column;align-items:center;gap:2px">${budgetColHtml}</div></td>
+      <td><span class="ct-stat-mini" style="color:var(--gray-500);font-weight:600">${n > 0 ? n + '개 매체' : '-'}</span></td>
       <td><span class="ct-period-mini">${campPeriodStr || '-'}</span></td>
       <td class="ct-status-cell">${smini(setupDone, n)}</td>
       <td class="ct-status-cell">${smini(liveDone, n)}</td>
@@ -4445,7 +4444,7 @@ function renderCampaignView() {
 
     if(!camp.mediaRows.length) {
       const etr = document.createElement('tr');
-      etr.innerHTML = `<td colspan="8" class="ct-no-media">매체를 추가해주세요</td>`;
+      etr.innerHTML = `<td colspan="9" class="ct-no-media">매체를 추가해주세요</td>`;
       tbody.appendChild(etr);
     } else {
       camp.mediaRows.forEach(row => {
@@ -4458,6 +4457,7 @@ function renderCampaignView() {
         mtr.className = 'ct-media-row';
         mtr.innerHTML = `
           <td><span class="ct-drag-handle" title="드래그해서 순서 변경">${DRAG_HANDLE_SVG}</span></td>
+          <td></td>
           <td><div style="display:inline-flex;align-items:center;gap:6px">
             <button class="ct-budget-toggle" onclick="toggleMediaBudget('${row.id}')" title="일예산 보기/숨기기">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="transform:${budgetOpen ? 'rotate(90deg)' : 'none'};transition:transform .15s"><polyline points="9 6 15 12 9 18"/></svg>
@@ -4513,7 +4513,7 @@ function renderCampaignView() {
           </div>`;
           const btr = document.createElement('tr');
           btr.className = 'ct-budget-row';
-          btr.innerHTML = `<td colspan="8"><div class="ct-budget-panel">
+          btr.innerHTML = `<td colspan="9"><div class="ct-budget-panel">
             <div class="ct-budget-grid ct-budget-head">
               <span>매체</span><span>총예산 (VAT미포함)</span><span>일자</span><span>일예산</span>
             </div>
@@ -4552,7 +4552,7 @@ function renderCampaignView() {
     // 비고 행 (항상 펼쳐진 상태에서 맨 끝에 표시)
     const ntr = document.createElement('tr');
     ntr.className = 'ct-note-row';
-    ntr.innerHTML = `<td colspan="8"><div class="ct-note-wrap">
+    ntr.innerHTML = `<td colspan="9"><div class="ct-note-wrap">
       <span class="ct-note-label">📝 비고</span>
       <textarea class="ct-note-input" placeholder="캠페인 메모를 입력하세요..." rows="1"
         onblur="saveCampNote('${camp.id}', this.value)"
