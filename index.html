@@ -509,6 +509,10 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .cp-alert-row b{font-weight:700;}
 .cp-alert-row.today{color:var(--red);}
 .cp-alert-row.today b{color:var(--red);}
+.team-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-radius:var(--r-md);font-size:13px;margin-bottom:16px;}
+.team-banner.edit{background:var(--blue-light);color:var(--blue-dark);}
+.team-banner.read{background:var(--warn-bg);color:var(--warn-text);}
+.team-banner-sub{font-size:12px;opacity:.85;}
 
 /* ── Modal type tabs ── */
 .modal-type-tabs{display:flex;background:var(--gray-100);border-radius:var(--r-sm);padding:3px;margin-bottom:20px;}
@@ -741,6 +745,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </nav>
   </div>
   <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" id="workspaceBtn" onclick="toggleWorkspace()" title="팀 공유 시트 열기 / 내 데이터로 돌아가기">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span id="workspaceBtnText">팀 공유</span>
+    </button>
     <button class="btn btn-ghost btn-sm" onclick="logout()" title="로그아웃">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       <span>로그아웃</span>
@@ -794,6 +802,8 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 </nav>
 
 <div class="main">
+
+  <div id="teamBanner" style="display:none"></div>
 
   <!-- ═══ HOME (DASHBOARD) VIEW ═══ -->
   <div class="view active" id="viewHome">
@@ -1529,8 +1539,9 @@ function placeMultiDayBars(events, weekYmds) {
 // ── Persistence ────────────────────────────────────────────────
 function backupData() {
   const keys = ['cal_events','cal_tasks','cal_memos','cal_memo_folders','cal_campaigns'];
-  const data = {};
-  keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
+  // 팀 공유 시트를 보고 있으면 지금 화면의 공유 데이터를 백업 (localStorage엔 개인 데이터만 있으므로)
+  const data = workspace === 'team' ? stateToData() : {};
+  if(workspace !== 'team') keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1545,6 +1556,7 @@ function handleRestoreFile(evt) {
   const file = evt.target.files && evt.target.files[0];
   evt.target.value = '';
   if(!file) return;
+  if(workspace === 'team') { showToast('복원은 내 데이터에서만 할 수 있어요 (팀 공유 시트는 덮어쓰지 않아요)'); return; }
   const reader = new FileReader();
   reader.onload = async () => {
     let data;
@@ -1563,6 +1575,12 @@ function handleRestoreFile(evt) {
 }
 
 function save() {
+  // 팀 공유 시트를 보고 있을 땐 개인 localStorage를 건드리지 않는다 (내 데이터와 완전히 분리)
+  if(workspace === 'team') {
+    if(!teamCanEdit) { showToast('읽기 전용 모드예요 · 다른 사람이 수정 중이라 저장되지 않아요'); return; }
+    teamSyncRemote();
+    return;
+  }
   localStorage.setItem('cal_events', JSON.stringify(state.events));
   localStorage.setItem('cal_tasks', JSON.stringify(state.tasks));
   localStorage.setItem('cal_memos', JSON.stringify(state.memos));
@@ -1694,10 +1712,160 @@ async function initAuth() {
 }
 
 function logout() {
+  if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
   sb.auth.signOut();
   authUser = null;
   location.reload();
 }
+
+// ── 팀 공유 시트 (엑셀 파일 잠금 방식: 한 번에 한 명만 편집) ──────────
+// 공유 데이터는 localStorage에 절대 쓰지 않고 메모리+Supabase에만 둔다. 내 개인 데이터와 섞이지 않게 하기 위함.
+const TEAM_ID = 'team';
+const TEAM_LOCK_TIMEOUT_MS = 2 * 60 * 1000; // 이 시간 동안 신호가 없으면 잠금이 풀린 것으로 본다
+let workspace = 'personal';   // 'personal' | 'team'
+let teamCanEdit = false;      // 팀 모드에서 내가 편집 권한을 가졌는지
+let teamLockName = '';        // 지금 편집 중인 사람 닉네임
+let teamHeartbeatTimer = null, teamPollTimer = null, teamPushTimer = null;
+
+function myNickname() { return localStorage.getItem('planup_nickname') || '누군가'; }
+
+function stateFromData(data) {
+  data = data || {};
+  state.events = Array.isArray(data.cal_events) ? data.cal_events.filter(Boolean) : [];
+  state.tasks = Array.isArray(data.cal_tasks) ? data.cal_tasks.filter(Boolean) : [];
+  state.memos = Array.isArray(data.cal_memos) ? data.cal_memos : [];
+  state.memoFolders = Array.isArray(data.cal_memo_folders) ? data.cal_memo_folders : [];
+  state.campaigns = Array.isArray(data.cal_campaigns) ? data.cal_campaigns : [];
+  state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
+}
+
+function stateToData() {
+  return {
+    cal_events: state.events,
+    cal_tasks: state.tasks,
+    cal_memos: state.memos,
+    cal_memo_folders: state.memoFolders,
+    cal_campaigns: state.campaigns
+  };
+}
+
+// 공유 시트 저장 (편집 권한이 있을 때만, 잠금을 뺏겼으면 조건절에서 걸러짐)
+async function pushTeamData() {
+  if(workspace !== 'team' || !teamCanEdit || !authUser) return;
+  try {
+    await sb.from('shared_data').update({
+      data: stateToData(),
+      updated_at: new Date().toISOString(),
+      updated_by_name: myNickname(),
+      locked_at: new Date().toISOString()
+    }).eq('id', TEAM_ID).eq('locked_by', authUser.id);
+  } catch(e) {}
+}
+function teamSyncRemote() {
+  clearTimeout(teamPushTimer);
+  teamPushTimer = setTimeout(pushTeamData, 1200);
+}
+
+function startTeamTimers() {
+  stopTeamTimers();
+  if(teamCanEdit) {
+    // 편집 중이라는 신호를 주기적으로 보내서 잠금 유지
+    teamHeartbeatTimer = setInterval(() => { try { sb.rpc('heartbeat_shared_lock'); } catch(e) {} }, 30000);
+  } else {
+    // 읽기 전용이면 상대가 나갔는지 + 최신 내용 확인
+    teamPollTimer = setInterval(teamPollLock, 20000);
+  }
+}
+function stopTeamTimers() {
+  clearInterval(teamHeartbeatTimer); teamHeartbeatTimer = null;
+  clearInterval(teamPollTimer); teamPollTimer = null;
+  clearTimeout(teamPushTimer); teamPushTimer = null;
+}
+
+async function teamPollLock() {
+  if(workspace !== 'team' || teamCanEdit) return;
+  try {
+    const { data } = await sb.from('shared_data').select('*').eq('id', TEAM_ID).maybeSingle();
+    if(!data) return;
+    teamLockName = data.locked_by_name || '';
+    stateFromData(data.data);
+    renderAll();
+    const lockFree = !data.locked_by || !data.locked_at ||
+      (Date.now() - new Date(data.locked_at).getTime() > TEAM_LOCK_TIMEOUT_MS);
+    renderWorkspaceUI(lockFree);
+  } catch(e) {}
+}
+
+async function enterTeamWorkspace(force) {
+  if(!authUser) return;
+  try {
+    const { data: row, error } = await sb.rpc('acquire_shared_lock', { p_name: myNickname(), p_force: !!force });
+    if(error) throw error;
+    if(!row) { showToast('공유 시트를 열지 못했어요'); return; }
+    workspace = 'team';
+    localStorage.setItem('planup_workspace', 'team');
+    teamCanEdit = row.locked_by === authUser.id;
+    teamLockName = row.locked_by_name || '';
+    stateFromData(row.data);
+    state.selectedDate = todayYMD_();
+    startTeamTimers();
+    renderWorkspaceUI();
+    renderAll();
+    showToast(teamCanEdit ? '팀 공유 시트 · 편집 모드로 열었어요' : `${teamLockName}님이 수정 중이라 읽기 전용으로 열었어요`);
+  } catch(e) {
+    showToast('공유 시트 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
+}
+
+async function exitTeamWorkspace() {
+  if(teamCanEdit) {
+    await pushTeamData(); // 나가기 전에 마지막 변경분 저장
+    try { await sb.rpc('release_shared_lock'); } catch(e) {}
+  }
+  stopTeamTimers();
+  workspace = 'personal';
+  teamCanEdit = false;
+  teamLockName = '';
+  localStorage.setItem('planup_workspace', 'personal');
+  load(); // 내 개인 데이터를 localStorage에서 다시 읽어옴
+  state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
+  state.selectedDate = todayYMD_();
+  renderWorkspaceUI();
+  renderAll();
+  showToast('내 데이터로 돌아왔어요');
+}
+
+function toggleWorkspace() {
+  if(workspace === 'team') exitTeamWorkspace();
+  else enterTeamWorkspace(false);
+}
+
+function teamForceEdit() {
+  if(!confirm(`${teamLockName || '다른 사용자'}님의 편집 권한을 가져올까요?\n\n상대가 지금도 수정 중이라면, 상대가 저장하지 못한 내용은 사라질 수 있어요.`)) return;
+  enterTeamWorkspace(true);
+}
+
+function renderWorkspaceUI(lockFree) {
+  const btnText = document.getElementById('workspaceBtnText');
+  if(btnText) btnText.textContent = workspace === 'team' ? '내 데이터로' : '팀 공유';
+  const banner = document.getElementById('teamBanner');
+  if(!banner) return;
+  if(workspace !== 'team') { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  banner.style.display = '';
+  if(teamCanEdit) {
+    banner.innerHTML = `<div class="team-banner edit">📋 <b>팀 공유 시트 · 편집 중</b>
+      <span class="team-banner-sub">지금은 나만 수정할 수 있어요. 다 쓰면 "내 데이터로"를 눌러 잠금을 풀어주세요.</span></div>`;
+  } else {
+    banner.innerHTML = `<div class="team-banner read">🔒 <b>팀 공유 시트 · 읽기 전용</b>
+      <span class="team-banner-sub">${lockFree ? '지금은 편집할 수 있어요' : escHtml(teamLockName || '다른 사용자') + '님이 수정 중이에요'}</span>
+      <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="${lockFree ? 'enterTeamWorkspace(false)' : 'teamForceEdit()'}">${lockFree ? '편집 모드로 전환' : '강제로 편집 권한 가져오기'}</button></div>`;
+  }
+}
+
+// 창을 닫을 때 잠금 해제 시도 (실패해도 2분 뒤 자동 만료되므로 안전)
+window.addEventListener('beforeunload', () => {
+  if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
+});
 
 // ── Helpers ────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -3207,6 +3375,7 @@ async function fetchICS(url) {
 }
 
 async function syncGcal() {
+  if(workspace === 'team') { showToast('구글 캘린더 동기화는 내 데이터에서만 할 수 있어요'); return; }
   const url = document.getElementById('gcalUrlInput').value.trim();
   if(!url) { showToast('iCal URL을 입력해주세요'); return; }
   const btn = document.getElementById('gcalSyncBtn');
@@ -3328,6 +3497,7 @@ function applyGcalEvents(parsed) {
 // 매일 오전 9시 이후, 그날 처음 앱을 열 때 한 번 자동으로 동기화한다.
 // (오전 9시 전에 열면 그 날은 아직 자동 동기화하지 않고, 같은 날 이미 동기화했으면 다시 하지 않음)
 async function autoSyncGcal() {
+  if(workspace === 'team') return; // 내 구글 캘린더 일정이 팀 공유 시트에 섞이지 않게
   const url = localStorage.getItem('cal_gcal_url');
   if(!url) return;
   const now = new Date();
@@ -4639,6 +4809,9 @@ function startApp() {
   renderAll();
   autoSyncGcal();
   mmSetupDragDrop();
+  renderWorkspaceUI();
+  // 지난번에 팀 공유 시트를 보고 있었다면 다시 열어준다 (잠금은 새로 잡는다)
+  if(localStorage.getItem('planup_workspace') === 'team') enterTeamWorkspace(false);
 }
 
 initAuth();
