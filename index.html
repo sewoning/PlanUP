@@ -1870,7 +1870,18 @@ function teamForceEdit() {
   enterTeamWorkspace(true);
 }
 
+// 캠페인 현황 / 일예산 계산기는 개인 데이터에서만 쓰는 탭이라 팀 공유 시트에선 숨긴다
+const TEAM_HIDDEN_TABS = ['campaign', 'budgetCalc'];
+function applyWorkspaceTabs() {
+  const hide = workspace === 'team';
+  TEAM_HIDDEN_TABS.forEach(t => {
+    document.querySelectorAll(`[data-tab="${t}"]`).forEach(el => { el.style.display = hide ? 'none' : ''; });
+  });
+  if(hide && TEAM_HIDDEN_TABS.includes(state.currentTab)) switchTab('home');
+}
+
 function renderWorkspaceUI(lockFree) {
+  applyWorkspaceTabs();
   const btnText = document.getElementById('workspaceBtnText');
   if(btnText) btnText.textContent = workspace === 'team' ? '내 데이터로' : '팀 공유';
   const banner = document.getElementById('teamBanner');
@@ -3474,7 +3485,7 @@ async function fetchICS(url) {
 }
 
 async function syncGcal() {
-  if(workspace === 'team') { showToast('구글 캘린더 동기화는 내 데이터에서만 할 수 있어요'); return; }
+  if(workspace === 'team' && !teamCanEdit) { showToast('읽기 전용 모드에선 동기화할 수 없어요'); return; }
   const url = document.getElementById('gcalUrlInput').value.trim();
   if(!url) { showToast('iCal URL을 입력해주세요'); return; }
   const btn = document.getElementById('gcalSyncBtn');
@@ -3596,7 +3607,7 @@ function applyGcalEvents(parsed) {
 // 매일 오전 9시 이후, 그날 처음 앱을 열 때 한 번 자동으로 동기화한다.
 // (오전 9시 전에 열면 그 날은 아직 자동 동기화하지 않고, 같은 날 이미 동기화했으면 다시 하지 않음)
 async function autoSyncGcal() {
-  if(workspace === 'team') return; // 내 구글 캘린더 일정이 팀 공유 시트에 섞이지 않게
+  if(workspace === 'team' && !teamCanEdit) return; // 읽기 전용일 땐 저장이 안 되므로 건너뜀
   const url = localStorage.getItem('cal_gcal_url');
   if(!url) return;
   const now = new Date();
