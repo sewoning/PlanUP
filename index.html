@@ -957,6 +957,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
               <div class="mf-dropdown" id="memoFolderDropdown" style="display:none"></div>
             </div>
             <span class="memo-meta" id="memoDateMeta"></span>
+            <button class="btn btn-ghost btn-xs" onclick="exportMemoToTxt()" title="이 메모를 메모장(.txt) 파일로 저장">내보내기</button>
             <button class="btn btn-danger btn-xs" onclick="deleteSelectedMemo()">삭제</button>
           </div>
           <div class="memo-toolbar" id="memoToolbar">
@@ -2766,6 +2767,45 @@ function memoBodyText(body) {
   const tmp = document.createElement('div');
   tmp.innerHTML = body;
   return (tmp.textContent || tmp.innerText || '').replace(/\n/g,' ');
+}
+
+// 목록 미리보기용 memoBodyText와 달리, 줄바꿈을 그대로 살려서 텍스트로 바꾼다 (txt 내보내기용)
+function memoBodyPlainText(body) {
+  if(!body) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = String(body)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(div|p|li|h[1-6]|blockquote|tr)>/gi, '\n');
+  return (tmp.textContent || tmp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// 파일명에 쓸 수 없는 문자 제거 (윈도우 기준)
+function safeFileName(name) {
+  return (name || '').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 60) || '메모';
+}
+
+// 지금 열려있는 메모를 메모장(.txt) 파일로 내보낸다
+function exportMemoToTxt() {
+  const memo = state.memos.find(m => m.id === state.selectedMemoId);
+  if(!memo) { showToast('내보낼 메모를 먼저 선택해주세요'); return; }
+  const title = memo.title || '제목 없음';
+  const folder = memo.folderId ? state.memoFolders.find(f => f.id === memo.folderId) : null;
+  const head = [
+    title,
+    '─'.repeat(30),
+    folder ? `폴더: ${folder.name}` : null,
+    `수정: ${new Date(memo.updatedAt).toLocaleString('ko-KR')}`,
+    ''
+  ].filter(l => l !== null);
+  // 메모장에서 한글이 깨지지 않도록 BOM을 붙이고, 줄바꿈도 윈도우 방식(CRLF)으로 맞춘다
+  const text = (head.join('\n') + '\n' + memoBodyPlainText(memo.body)).replace(/\n/g, '\r\n');
+  const blob = new Blob(['﻿' + text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${safeFileName(title)}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('메모를 txt 파일로 내보냈어요 ✓');
 }
 
 function updateMemoListItem(memo) {
