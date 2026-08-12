@@ -1297,7 +1297,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
       <div class="form-group">
         <label class="form-label">계약 총예산 <span style="color:var(--gray-400);font-weight:500">(VAT 미포함, 선택)</span></label>
         <input class="form-input" id="cpTotalBudget" type="text" inputmode="numeric" placeholder="예) 1000000000" oninput="formatCommaInput(this)">
-        <div style="font-size:12px;color:var(--gray-400);margin-top:6px;">입력해두면 매체 합계랑 자동으로 비교해서 안 맞을 때 알려드려요</div>
+        <div style="font-size:12px;color:var(--gray-400);margin-top:6px;">목록의 총예산은 매체 금액 합계로 자동 계산돼요. 여기에 계약 금액을 입력해두면 합계와 차이가 날 때 알려드려요</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -4015,10 +4015,16 @@ function saveMediaModal() {
   if(!camp) return;
   if(cpState.editMediaId) {
     const row = camp.mediaRows.find(m => m.id === cpState.editMediaId);
-    if(row) { row.media = mediaName; row.startDate = startDate; row.endDate = endDate; row.amount = amount; }
+    if(row) {
+      row.media = mediaName; row.startDate = startDate; row.endDate = endDate; row.amount = amount;
+      // 금액을 직접 고쳤으면 현재 기준(금액/서비스율 포함)의 원본값도 같이 갱신한다.
+      // 안 그러면 나중에 기준을 전환할 때 예전 금액으로 되돌아가서 수정이 사라진 것처럼 보임
+      row[(row.amountBasis === 'right') ? 'amountRight' : 'amountLeft'] = amount;
+    }
   } else {
     camp.mediaRows.push({ id: uid(), media: mediaName, startDate, endDate, amount, amountLeft: amount, amountRight: null, amountBasis: 'left', budgetMode: 'exclude_vat', markupRate: 20, spent: 0, adGroups: [], setup: 0, live: 0, liveEnd: 0, report: 0 });
   }
+  syncCampaignLiveStatus(camp);
   save();
   closeModal('mediaModal');
   renderCampaignView();
@@ -4038,7 +4044,10 @@ function deleteCurrentMedia() {
 function deleteMediaRow(campId, mediaId) {
   if(!confirm('이 매체를 삭제할까요?')) return;
   const camp = state.campaigns.find(c => c.id === campId);
-  if(camp) camp.mediaRows = camp.mediaRows.filter(m => m.id !== mediaId);
+  if(camp) {
+    camp.mediaRows = camp.mediaRows.filter(m => m.id !== mediaId);
+    syncCampaignLiveStatus(camp); // 남은 매체 기준으로 캠페인 상태 다시 판단
+  }
   save();
   renderCampaignView();
   showToast('매체가 삭제됐어요');
@@ -4490,12 +4499,18 @@ function toggleStatus(campId, mediaId, field) {
   const cur = statusVal(row[field]);
   const twoState = TWO_STATE_FIELDS.includes(field);
   row[field] = twoState ? (cur === 0 ? 1 : 0) : (cur === 0 ? 1 : cur === 1 ? 2 : 0);
-  // 매체 "라이브" 체크가 켜지면 캠페인 라이브 상태도 자동으로 "라이브 중"으로 전환
-  if(field === 'live' && statusVal(row.live) >= 1) {
-    camp.liveStatus = 'live';
-  }
+  syncCampaignLiveStatus(camp);
   save();
   renderCampaignView();
+}
+
+// 매체별 라이브/라이브종료 체크 상태를 캠페인 전체 상태에 반영한다.
+// (원래는 "라이브" 체크만 반영돼서, 매체를 전부 라이브 종료 처리해도 캠페인은 계속 "라이브 중"으로 남아있었음)
+function syncCampaignLiveStatus(camp) {
+  const rows = camp.mediaRows || [];
+  if(!rows.length) return;
+  if(rows.every(m => statusVal(m.liveEnd) >= 1)) camp.liveStatus = 'ended';
+  else if(rows.some(m => statusVal(m.live) >= 1)) camp.liveStatus = 'live';
 }
 
 // ── 캠페인 / 매체 드래그 정렬 ─────────────────────────────────────
@@ -4770,17 +4785,19 @@ function renderCampaignView() {
       ? '<span style="color:var(--gray-300);font-size:11px">-</span>'
       : `<span class="ct-stat-mini${done===total?' ct-stat-mini-done':''}">${done}/${total}</span>`;
 
-    // 총예산 표시: 계약 총예산이 있으면 그 금액 + 매체 합계와 일치하는지 검증, 없으면 매체 합계라도 보여줌
+    // 총예산은 매체 금액 합계를 그대로 따라간다 (매체 금액을 고치면 총예산도 자동으로 같이 바뀜).
+    // 계약 총예산을 따로 입력해둔 경우엔 그 값과 비교해서 차이만 배지로 알려준다.
     const mediaSum = camp.mediaRows.reduce((s, m) => s + (Number(m.amount) || 0), 0);
     let budgetColHtml = '<span style="color:var(--gray-300);font-size:12px">-</span>';
-    if(camp.totalBudget) {
-      const diff = mediaSum - camp.totalBudget;
-      const checkHtml = diff === 0
-        ? `<span class="ct-budget-check ok" title="매체 합계와 계약 총예산이 일치해요">✓</span>`
-        : `<span class="ct-budget-check warn" title="매체 합계 ${fmtWon(mediaSum)} / 계약 ${fmtWon(camp.totalBudget)}">⚠️ ${diff > 0 ? '+' : ''}${fmtWon(diff)}</span>`;
-      budgetColHtml = `<span class="ct-budget-total">${fmtWon(camp.totalBudget)}</span> ${checkHtml}`;
-    } else if(mediaSum > 0) {
-      budgetColHtml = `<span class="ct-budget-total" style="color:var(--gray-400)" title="계약 총예산 미입력 · 매체 금액 합계">${fmtWon(mediaSum)}</span>`;
+    if(mediaSum > 0 || camp.totalBudget) {
+      let checkHtml = '';
+      if(camp.totalBudget) {
+        const diff = mediaSum - camp.totalBudget;
+        checkHtml = diff === 0
+          ? `<span class="ct-budget-check ok" title="계약 총예산 ${fmtWon(camp.totalBudget)}과(와) 일치해요">✓</span>`
+          : `<span class="ct-budget-check warn" title="계약 총예산 ${fmtWon(camp.totalBudget)} 대비 ${diff > 0 ? '초과' : '부족'}">⚠️ ${diff > 0 ? '+' : ''}${fmtWon(diff)}</span>`;
+      }
+      budgetColHtml = `<span class="ct-budget-total" title="매체 금액 합계 (매체 금액이 바뀌면 자동으로 반영돼요)">${fmtWon(mediaSum)}</span> ${checkHtml}`;
     }
 
     const campOrderFixed = cpFilter === 'ended' || cpSort !== 'manual'; // 자동 정렬 중엔 드래그 순서 변경 불가
