@@ -1176,6 +1176,9 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 
       <!-- 일정 필드 -->
       <div id="itemEventFields">
+        <div id="evGcalNote" style="display:none;font-size:12px;color:var(--warn-text);background:var(--warn-bg);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;">
+          구글 캘린더에서 가져온 일정이에요. 여기서 수정해도 <b>다음 동기화 때 원래 내용으로 돌아가요</b> — 구글 캘린더에서 직접 수정해주세요.
+        </div>
         <div class="form-group">
           <label class="form-label">제목 <span class="req">*</span></label>
           <input class="form-input" id="evTitle" placeholder="일정 제목" maxlength="80">
@@ -2585,6 +2588,7 @@ function openAddItemModal(type, date, time) {
   state.editingEventId=null; state.editingTaskId=null;
   document.getElementById('itemModalTitle').textContent = type==='event' ? '새 일정' : '새 업무';
   document.getElementById('itemDeleteBtn').style.display='none';
+  document.getElementById('evGcalNote').style.display='none';
   switchItemType(type);
   // reset range picker
   rp.startDate=date||state.selectedDate||todayYMD_();
@@ -2608,6 +2612,8 @@ function openEditItemModal(type, id) {
     document.getElementById('itemModalTitle').textContent='일정 수정';
     document.getElementById('itemDeleteBtn').style.display='';
     switchItemType('event');
+    // 구글 캘린더 일정은 동기화 때 통째로 교체되므로, 여기서 고쳐도 유지되지 않는다는 걸 알려준다
+    document.getElementById('evGcalNote').style.display = ev.gcalUid ? '' : 'none';
     rp.startDate=ev.date; rp.endDate=ev.endDate||null; rp.phase=0; rp.hoverDate=null; rp.activeField='start';
     closeRangePicker(); updateRpDisplay();
     document.getElementById('evTitle').value=ev.title;
@@ -2627,7 +2633,9 @@ function saveItem() {
     if(!rp.startDate){showToast('날짜를 선택해주세요');return;}
     const date=rp.startDate;
     const endDate=(rp.endDate&&rp.endDate!==rp.startDate)?rp.endDate:null;
-    const data={title,date,endDate,startTime:document.getElementById('evStartTime').value||null,endTime:document.getElementById('evEndTime').value||null,content:document.getElementById('evContent').value.trim()};
+    // 구글 캘린더에서 가져온 일정과 같은 규칙으로 "재택" 여부를 판단한다 (직접 추가한 일정도 재택 필터에 잡히도록)
+    const {remoteWork}=classifyGcalTitle(title);
+    const data={title,date,endDate,startTime:document.getElementById('evStartTime').value||null,endTime:document.getElementById('evEndTime').value||null,content:document.getElementById('evContent').value.trim(),remoteWork};
     if(state.editingEventId){const idx=state.events.findIndex(e=>e.id===state.editingEventId);if(idx!==-1)state.events[idx]={...state.events[idx],...data};showToast('일정이 수정되었어요');}
     else{state.events.push({id:uid(),...data,createdAt:Date.now()});state.selectedDate=date;showToast('일정이 추가되었어요 ✓');}
   } else {
@@ -3888,12 +3896,8 @@ function bcRefreshOutputs() {
 
   const days = mediaExecDays(bc);
   const daily = computeMediaDailyBudget(bc);
-  let base = null;
-  if(days) {
-    if(bc.budgetMode === 'include_vat') base = bc.amount * 1.1;
-    else if(bc.budgetMode === 'exclude_markup') base = bc.amount * (1 - (bc.markupRate || 0) / 100);
-    else base = bc.amount;
-  }
+  // 기준금액은 일예산과 똑같은 계산식을 써야 해서 공용 함수를 그대로 사용한다 (예전엔 여기서 따로 계산해 어긋날 수 있었음)
+  const base = days ? computeMediaBaseAmount(Number(bc.amount) || 0, bc) : null;
   document.getElementById('bcDays').textContent = days ? `${days}일` : '-';
   document.getElementById('bcBase').textContent = base !== null ? fmtWon(base) : '-';
   document.getElementById('bcDaily').textContent = daily !== null ? fmtWon(daily) : '-';
