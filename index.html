@@ -205,6 +205,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .kanban-card-compact { padding:8px 10px; }
 .kanban-card-compact .kanban-card-note { display:none; }
 .kanban-card-compact .kanban-card-times { display:none; }
+.kanban-card-compact.kanban-card-times-on .kanban-card-times { display:flex; margin-top:4px; }
 .detail-header { padding:16px 20px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between; }
 .detail-title { font-size:15px; font-weight:700; color:var(--gray-800); }
 .detail-empty { padding:32px 20px; text-align:center; color:var(--gray-400); font-size:13px; }
@@ -2520,7 +2521,7 @@ function createTaskCard(tk, opts) {
   opts = opts || {};
   const compact = !!opts.compact;
   const card = document.createElement('div');
-  card.className = 'kanban-card' + (tk.status === 'done' ? ' done' : '') + (compact ? ' kanban-card-compact' : '');
+  card.className = 'kanban-card' + (tk.status === 'done' ? ' done' : '') + (compact ? ' kanban-card-compact' : '') + (opts.showTimes ? ' kanban-card-times-on' : '');
   card.dataset.taskId = tk.id;
   card.setAttribute('draggable', 'true');
   const completeBtnHtml = tk.status !== 'done'
@@ -3472,7 +3473,8 @@ function renderHomeTasks() {
   wrap.innerHTML = '';
   const tasks = state.tasks.filter(t => t && (t.status === 'todo' || t.status === 'inprogress'));
   if(!tasks.length) { wrap.innerHTML = '<div class="home-empty">할 일이 없어요</div>'; return; }
-  tasks.forEach(tk => wrap.appendChild(createTaskCard(tk, { compact: true })));
+  // 홈에서 업무를 등록·확인하는 경우가 많아서, 좁은 카드지만 등록 시각과 경과일은 보여준다
+  tasks.forEach(tk => wrap.appendChild(createTaskCard(tk, { compact: true, showTimes: true })));
   initColDrop(wrap, 'todo');
 }
 
