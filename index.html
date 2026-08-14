@@ -1277,6 +1277,8 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
             <input id="infoSearch" placeholder="매체·이름·연락처 검색" oninput="setInfoQuery(this.value)" autocomplete="off">
             <button class="info-filter-clear" id="infoSearchClear" onclick="setInfoQuery('')" style="display:none">✕</button>
           </div>
+          <input type="file" id="infoImportInput" accept=".json" style="display:none" onchange="handleInfoImport(event)">
+          <button class="btn btn-ghost btn-sm" id="infoImportBtn" onclick="document.getElementById('infoImportInput').click()" title="JSON 파일로 담당자 목록 가져오기">가져오기</button>
           <button class="btn btn-primary btn-sm" id="infoAddBtn" onclick="addInfoRow()">+ 추가</button>
         </div>
       </div>
@@ -2212,6 +2214,49 @@ function renameContactMedia(oldMedia, newMedia) {
   renderInfoView();
 }
 
+// 담당자 목록을 JSON 파일로 가져온다. 기존 항목은 지우지 않고, 이메일이 같으면 빈 칸만 채워 넣는다(합치기).
+function handleInfoImport(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  evt.target.value = '';
+  if(!file) return;
+  if(infoTab !== 'contact') { showToast('가져오기는 매체 담당자 시트에서만 지원해요'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    let rows;
+    try { rows = JSON.parse(reader.result); } catch(e) { showToast('JSON 파일을 읽지 못했어요'); return; }
+    if(!Array.isArray(rows)) { showToast('담당자 목록(배열) 형식이 아니에요'); return; }
+    const clean = rows.filter(r => r && (r.name || r.email || r.media));
+    if(!clean.length) { showToast('가져올 담당자가 없어요'); return; }
+    if(!confirm(`담당자 ${clean.length}명을 가져올게요.\n\n기존 목록은 지우지 않고 추가돼요. 같은 이메일이 이미 있으면 비어있는 칸만 채워요.`)) return;
+
+    let added = 0, merged = 0;
+    clean.forEach(r => {
+      const email = String(r.email || '').trim().toLowerCase();
+      const exist = email ? state.contacts.find(c => String(c.email || '').trim().toLowerCase() === email) : null;
+      if(exist) {
+        ['media','name','team','phone','note','groupEmail'].forEach(f => {
+          if(!exist[f] && r[f]) { exist[f] = String(r[f]); }
+        });
+        merged++;
+      } else {
+        state.contacts.push({
+          id: uid(),
+          media: String(r.media || ''), groupEmail: String(r.groupEmail || ''),
+          name: String(r.name || ''), team: String(r.team || ''),
+          phone: String(r.phone || ''), email: String(r.email || ''),
+          note: String(r.note || '')
+        });
+        added++;
+      }
+    });
+    save();
+    renderInfoView();
+    showToast(`가져왔어요 · 새로 ${added}명, 기존 보완 ${merged}명`);
+  };
+  reader.onerror = () => showToast('파일을 읽는 중 오류가 발생했어요');
+  reader.readAsText(file);
+}
+
 // 매체 대표 메일(광고팀 메일)은 그룹 단위 정보라, 그 매체에 속한 담당자 행 전체에 같이 반영한다
 function updateContactGroupEmail(media, email) {
   const key = String(media || ''), val = String(email || '').trim();
@@ -2264,6 +2309,7 @@ function renderInfoView() {
   document.getElementById('infoContactCount').textContent = (state.contacts || []).length;
   document.getElementById('infoAccountCount').textContent = (state.accounts || []).length;
   document.getElementById('infoAddBtn').textContent = infoTab === 'contact' ? '+ 매체 추가' : '+ 행 추가';
+  document.getElementById('infoImportBtn').style.display = infoTab === 'contact' ? '' : 'none';
   document.getElementById('infoSearch').placeholder = infoTab === 'contact' ? '매체·이름·연락처 검색' : '서비스·아이디 검색';
   document.getElementById('infoSearchClear').style.display = infoQuery ? '' : 'none';
 
