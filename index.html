@@ -516,6 +516,53 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .cp-alert-row b{font-weight:700;}
 .cp-alert-row.today{color:var(--red);}
 .cp-alert-row.today b{color:var(--red);}
+/* ── 정보 탭 (매체 담당자 / 계정) ── */
+.info-view{flex:1;display:flex;flex-direction:column;gap:14px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:18px 20px;min-height:420px;}
+.info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.info-notice{font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
+.info-notice.warn{background:var(--warn-bg);color:var(--warn-text);}
+.info-table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);}
+.info-table{width:100%;border-collapse:collapse;min-width:720px;}
+.info-table th{background:#fff;padding:9px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
+.info-table td{padding:3px 6px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
+.info-table tr:last-child td{border-bottom:none;}
+.info-row:hover{background:var(--gray-50);}
+.info-input{width:100%;border:1px solid transparent;background:transparent;border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;color:var(--gray-800);transition:border-color .12s,background .12s;}
+.info-input:hover{border-color:var(--gray-200);}
+.info-input:focus{outline:none;border-color:var(--blue);background:#fff;}
+.info-input::placeholder{color:var(--gray-300);}
+.info-secret{display:flex;align-items:center;gap:2px;}
+.info-eye{border:none;background:transparent;cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px;flex-shrink:0;}
+.info-eye:hover{background:var(--gray-100);}
+.info-empty{padding:60px 20px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.8;}
+
+/* ── 전체 검색 ── */
+.search-modal{max-width:640px;width:100%;padding:0;overflow:hidden;}
+.search-input-wrap{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--gray-200);}
+.search-input{flex:1;min-width:0;border:none;outline:none;font-size:15px;font-family:inherit;color:var(--gray-900);background:transparent;}
+.search-input::placeholder{color:var(--gray-400);}
+.search-results{max-height:min(60vh,460px);overflow-y:auto;padding:6px;}
+.search-hint{padding:28px 20px;text-align:center;font-size:13px;color:var(--gray-400);line-height:1.7;}
+.search-row{width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;background:transparent;border-radius:var(--r-sm);cursor:pointer;text-align:left;font-family:inherit;transition:background .1s;}
+.search-row:hover,.search-row.sel{background:var(--gray-100);}
+.search-type{flex-shrink:0;font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;background:var(--gray-100);color:var(--gray-600);}
+.search-type.ev{background:var(--blue-light);color:var(--blue);}
+.search-type.tk{background:var(--success-bg);color:var(--green);}
+.search-type.mo{background:#F3EAF9;color:#7B4FA3;}
+.search-type.cp{background:var(--warn-bg);color:var(--warn-text);}
+.search-type.ct{background:#E6F4F3;color:var(--teal);}
+.search-type.ac{background:var(--danger-bg);color:var(--red);}
+.search-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.search-title{font-size:13.5px;font-weight:600;color:var(--gray-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.search-snip{font-size:11.5px;color:var(--gray-500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.search-sub{flex-shrink:0;font-size:11px;color:var(--gray-400);white-space:nowrap;}
+/* 이동한 항목을 잠깐 강조 */
+@keyframes searchFlash{0%,100%{box-shadow:0 0 0 0 rgba(0,117,222,0);background-color:transparent}
+  15%,70%{box-shadow:0 0 0 3px rgba(0,117,222,.35);background-color:var(--blue-light)}}
+.search-flash{animation:searchFlash 1.8s ease-out;border-radius:var(--r-sm);}
+@media(prefers-reduced-motion:reduce){.search-flash{animation:none;box-shadow:0 0 0 3px rgba(0,117,222,.35);}}
+@media(max-width:700px){.search-sub{display:none}}
+
 .team-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-radius:var(--r-md);font-size:13px;margin-bottom:16px;}
 .team-banner.edit{background:var(--blue-light);color:var(--blue-dark);}
 .team-banner.read{background:var(--warn-bg);color:var(--warn-text);}
@@ -753,9 +800,17 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/><line x1="8" y1="19" x2="16" y2="19"/></svg>
         <span>일예산 계산기</span>
       </button>
+      <button class="tab-btn" id="tabInfo" data-tab="info" onclick="switchTab('info')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>정보</span>
+      </button>
     </nav>
   </div>
   <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" id="searchHeaderBtn" onclick="openSearch()" title="전체 검색 (Ctrl+K)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>검색</span>
+    </button>
     <button class="btn btn-ghost btn-sm" id="workspaceBtn" onclick="toggleWorkspace()" title="팀 공유 시트 열기 / 내 데이터로 돌아가기">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span id="workspaceBtnText">팀 공유</span>
@@ -809,6 +864,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <button class="bottom-tab-btn" data-tab="budgetCalc" onclick="switchTab('budgetCalc')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/><line x1="8" y1="19" x2="16" y2="19"/></svg>
     <span>일예산</span>
+  </button>
+  <button class="bottom-tab-btn" data-tab="info" onclick="switchTab('info')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span>정보</span>
   </button>
 </nav>
 
@@ -1147,6 +1206,31 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </div>
   </div>
 
+  <!-- ═══ 정보 (매체 담당자 / 계정) ═══ -->
+  <div class="view" id="viewInfo">
+    <div class="info-view">
+      <div class="info-head">
+        <div class="sheet-tab-row" style="width:auto">
+          <button class="sheet-tab-btn" id="infoTabContact" onclick="setInfoTab('contact')">
+            매체 담당자 <span class="kanban-count" id="infoContactCount"></span>
+          </button>
+          <button class="sheet-tab-btn" id="infoTabAccount" onclick="setInfoTab('account')">
+            계정 <span class="kanban-count" id="infoAccountCount"></span>
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addInfoRow()">+ 행 추가</button>
+      </div>
+      <div id="infoNotice"></div>
+      <div class="info-table-wrap">
+        <table class="info-table" id="infoTable">
+          <thead id="infoThead"></thead>
+          <tbody id="infoTbody"></tbody>
+        </table>
+      </div>
+      <div class="info-empty" id="infoEmpty" style="display:none"></div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -1168,6 +1252,18 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 <div class="toast-wrap" id="toastWrap"></div>
 
 <!-- ── Unified Add/Edit Modal ── -->
+<!-- ── 전체 검색 ── -->
+<div class="modal-overlay" id="searchModal" onclick="if(event.target===this)closeSearch()">
+  <div class="modal search-modal">
+    <div class="search-input-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--gray-400);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" class="search-input" placeholder="일정, 업무, 메모, 캠페인, 담당자, 계정 검색..." oninput="runSearch()" onkeydown="searchKeydown(event)" autocomplete="off">
+      <button class="modal-close" onclick="closeSearch()">✕</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="itemModal">
   <div class="modal">
     <div class="modal-header">
@@ -1407,6 +1503,8 @@ let authUser = null; // 로그인한 사용자 (supabase auth user 객체)
 let state = {
   events: [], tasks: [], memos: [], campaigns: [],
   memoFolders: [],
+  contacts: [],   // 매체 담당자 연락처
+  accounts: [],   // 계정 정보
   memoUncatCollapsed: false,
   selectedMemoId: null,
   calTypeFilter: 'all',   // 'all' | 'remote'
@@ -1576,7 +1674,7 @@ function placeMultiDayBars(events, weekYmds) {
 
 // ── Persistence ────────────────────────────────────────────────
 function backupData() {
-  const keys = ['cal_events','cal_tasks','cal_memos','cal_memo_folders','cal_campaigns'];
+  const keys = ['cal_events','cal_tasks','cal_memos','cal_memo_folders','cal_campaigns','cal_contacts','cal_accounts'];
   // 팀 공유 시트를 보고 있으면 지금 화면의 공유 데이터를 백업 (localStorage엔 개인 데이터만 있으므로)
   const data = workspace === 'team' ? stateToData() : {};
   if(workspace !== 'team') keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
@@ -1599,7 +1697,7 @@ function handleRestoreFile(evt) {
   reader.onload = async () => {
     let data;
     try { data = JSON.parse(reader.result); } catch(e) { showToast('백업 파일을 읽는 중 오류가 발생했어요'); return; }
-    const keys = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns'];
+    const keys = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts'];
     if(!keys.some(k => data[k] !== undefined)) { showToast('올바른 백업 파일이 아니에요'); return; }
     if(!confirm('지금 있는 데이터를 백업 파일 내용으로 덮어써요. 계속할까요?')) return;
     keys.forEach(k => { if(data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
@@ -1624,6 +1722,8 @@ function save() {
   localStorage.setItem('cal_memos', JSON.stringify(state.memos));
   localStorage.setItem('cal_memo_folders', JSON.stringify(state.memoFolders));
   localStorage.setItem('cal_campaigns', JSON.stringify(state.campaigns));
+  localStorage.setItem('cal_contacts', JSON.stringify(state.contacts));
+  localStorage.setItem('cal_accounts', JSON.stringify(state.accounts));
   syncRemote();
 }
 function load() {
@@ -1638,11 +1738,15 @@ function load() {
     if(mf) state.memoFolders = JSON.parse(mf);
     const cp = localStorage.getItem('cal_campaigns');
     if(cp) state.campaigns = JSON.parse(cp);
+    const ct = localStorage.getItem('cal_contacts');
+    state.contacts = ct ? JSON.parse(ct) : [];
+    const ac = localStorage.getItem('cal_accounts');
+    state.accounts = ac ? JSON.parse(ac) : [];
   } catch(e){}
 }
 
 // ── Auth & 원격 동기화 (Supabase) ─────────────────────────────────
-const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns'];
+const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts'];
 let authMode = 'login'; // 'login' | 'signup'
 
 // 닉네임은 실제 이메일이 아니라, Supabase Auth가 요구하는 이메일 형식으로 변환해서만 내부적으로 사용 (실제 메일 발송 없음)
@@ -1791,6 +1895,8 @@ function stateFromData(data) {
   state.tasks = Array.isArray(data.cal_tasks) ? data.cal_tasks.filter(Boolean) : [];
   state.memos = Array.isArray(data.cal_memos) ? data.cal_memos : [];
   state.memoFolders = Array.isArray(data.cal_memo_folders) ? data.cal_memo_folders : [];
+  state.contacts = Array.isArray(data.cal_contacts) ? data.cal_contacts : [];
+  state.accounts = Array.isArray(data.cal_accounts) ? data.cal_accounts : [];
   state.campaigns = Array.isArray(data.cal_campaigns) ? data.cal_campaigns : [];
   state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
 }
@@ -1801,6 +1907,8 @@ function stateToData() {
     cal_tasks: state.tasks,
     cal_memos: state.memos,
     cal_memo_folders: state.memoFolders,
+    cal_contacts: state.contacts,
+    cal_accounts: state.accounts,
     cal_campaigns: state.campaigns
   };
 }
@@ -1935,6 +2043,290 @@ window.addEventListener('beforeunload', () => {
   if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
 });
 
+// ── 정보 탭 (매체 담당자 / 계정) ────────────────────────────────
+// 컬럼 정의를 한 곳에 두고 표를 만들어서, 두 시트가 같은 코드로 굴러가게 한다
+let infoTab = 'contact'; // 'contact' | 'account'
+const INFO_SHEETS = {
+  contact: {
+    key: 'contacts', label: '매체 담당자',
+    cols: [
+      { f: 'media', h: '매체', w: '15%', ph: '예) 네이버' },
+      { f: 'name',  h: '담당자', w: '12%', ph: '이름' },
+      { f: 'team',  h: '소속/직함', w: '15%', ph: '예) 광고사업팀 대리' },
+      { f: 'phone', h: '연락처', w: '15%', ph: '010-0000-0000' },
+      { f: 'email', h: '이메일', w: '20%', ph: 'name@media.com' },
+      { f: 'note',  h: '비고', w: '23%', ph: '메모' }
+    ]
+  },
+  account: {
+    key: 'accounts', label: '계정',
+    cols: [
+      { f: 'service',  h: '서비스/매체', w: '20%', ph: '예) 메타 비즈니스' },
+      { f: 'loginId',  h: '아이디', w: '20%', ph: 'ID' },
+      { f: 'password', h: '비밀번호', w: '18%', ph: '입력 시 가려져요', secret: true },
+      { f: 'owner',    h: '담당', w: '15%', ph: '사용자' },
+      { f: 'note',     h: '비고', w: '27%', ph: '메모' }
+    ]
+  }
+};
+
+function setInfoTab(tab) { infoTab = tab; renderInfoView(); }
+
+function addInfoRow() {
+  const sheet = INFO_SHEETS[infoTab];
+  const row = { id: uid() };
+  sheet.cols.forEach(c => { row[c.f] = ''; });
+  state[sheet.key].push(row);
+  save();
+  renderInfoView();
+  // 새로 만든 행의 첫 칸에 바로 입력할 수 있게 커서를 둔다
+  setTimeout(() => {
+    const el = document.querySelector(`.info-row[data-row-id="${row.id}"] .info-input`);
+    if(el) el.focus();
+  }, 40);
+}
+
+function updateInfoRow(id, field, val) {
+  const list = state[INFO_SHEETS[infoTab].key];
+  const row = list.find(r => r.id === id);
+  if(!row || row[field] === val) return;
+  row[field] = val;
+  save();
+}
+
+function deleteInfoRow(id) {
+  const sheet = INFO_SHEETS[infoTab];
+  const list = state[sheet.key];
+  const row = list.find(r => r.id === id);
+  const label = row ? (row.media || row.name || row.service || '이 행') : '이 행';
+  if(!confirm(`${label}을(를) 삭제할까요?`)) return;
+  state[sheet.key] = list.filter(r => r.id !== id);
+  save();
+  renderInfoView();
+}
+
+// 비밀번호 칸은 기본으로 가려두고, 눈 버튼을 눌렀을 때만 보여준다
+function toggleSecret(btn) {
+  const input = btn.parentNode.querySelector('input');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
+}
+
+function renderInfoView() {
+  const sheet = INFO_SHEETS[infoTab];
+  document.getElementById('infoTabContact').classList.toggle('active', infoTab === 'contact');
+  document.getElementById('infoTabAccount').classList.toggle('active', infoTab === 'account');
+  document.getElementById('infoContactCount').textContent = (state.contacts || []).length;
+  document.getElementById('infoAccountCount').textContent = (state.accounts || []).length;
+
+  const notice = document.getElementById('infoNotice');
+  const teamHint = workspace === 'team'
+    ? '팀 공유 시트라 팀원 모두가 함께 봐요.'
+    : '지금은 <b>내 데이터</b>예요. 팀원과 같이 쓰려면 헤더의 "팀 공유"로 전환한 뒤 입력해주세요.';
+  notice.innerHTML = infoTab === 'account'
+    ? `<div class="info-notice warn">🔐 비밀번호는 <b>암호화되지 않은 상태로 저장</b>돼요. 로그인한 사람은 볼 수 있으니 중요한 계정 비밀번호는 넣지 마세요. ${teamHint}</div>`
+    : `<div class="info-notice">${teamHint}</div>`;
+
+  const rows = state[sheet.key] || [];
+  document.getElementById('infoThead').innerHTML =
+    `<tr>${sheet.cols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
+
+  const tbody = document.getElementById('infoTbody');
+  const empty = document.getElementById('infoEmpty');
+  const table = document.getElementById('infoTable');
+  if(!rows.length) {
+    table.style.display = 'none';
+    empty.style.display = '';
+    empty.innerHTML = `아직 등록된 ${sheet.label} 정보가 없어요.<br>"+ 행 추가"를 눌러 시작하세요.`;
+    return;
+  }
+  table.style.display = '';
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(r => `
+    <tr class="info-row" data-row-id="${r.id}">
+      ${sheet.cols.map(c => `<td>${c.secret
+        ? `<div class="info-secret">
+             <input class="info-input" type="password" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
+               onchange="updateInfoRow('${r.id}','${c.f}',this.value)">
+             <button class="info-eye" onclick="toggleSecret(this)" title="보기/숨기기">👁</button>
+           </div>`
+        : `<input class="info-input" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
+             onchange="updateInfoRow('${r.id}','${c.f}',this.value)">`
+      }</td>`).join('')}
+      <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="삭제">✕</button></td>
+    </tr>`).join('');
+}
+
+// ── 전체 검색 ──────────────────────────────────────────────────
+// 일정/업무/메모/캠페인/담당자/계정을 한 번에 찾고, 고르면 해당 화면으로 이동해 잠깐 하이라이트한다.
+let searchSel = 0;      // 키보드로 고른 결과 index
+let searchHits = [];    // 현재 검색 결과
+
+function openSearch() {
+  document.getElementById('searchModal').classList.add('open');
+  const input = document.getElementById('searchInput');
+  input.value = '';
+  searchHits = []; searchSel = 0;
+  document.getElementById('searchResults').innerHTML =
+    '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 담당자 · 계정을 한 번에 찾아요.</div>';
+  setTimeout(() => input.focus(), 60);
+}
+function closeSearch() { document.getElementById('searchModal').classList.remove('open'); }
+
+// 검색어가 들어간 부분 앞뒤를 잘라서 미리보기 문구를 만든다
+function searchSnippet(text, q) {
+  const plain = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if(!plain) return '';
+  const i = plain.toLowerCase().indexOf(q);
+  if(i === -1) return plain.slice(0, 60);
+  const from = Math.max(0, i - 20);
+  return (from > 0 ? '…' : '') + plain.slice(from, from + 70) + (plain.length > from + 70 ? '…' : '');
+}
+
+function runSearch() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const box = document.getElementById('searchResults');
+  searchSel = 0;
+  if(q.length < 1) {
+    searchHits = [];
+    box.innerHTML = '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 담당자 · 계정을 한 번에 찾아요.</div>';
+    return;
+  }
+  const has = (...vals) => vals.some(v => String(v || '').toLowerCase().includes(q));
+  const hits = [];
+
+  state.events.forEach(ev => {
+    if(has(ev.title, ev.content)) hits.push({ type: '일정', cls: 'ev', id: ev.id, title: ev.title,
+      sub: ev.date ? ev.date.replace(/-/g, '.') + (ev.endDate ? ` ~ ${ev.endDate.replace(/-/g,'.')}` : '') : '',
+      snippet: searchSnippet(ev.content, q), go: () => gotoEvent(ev) });
+  });
+
+  state.tasks.forEach(tk => {
+    if(has(tk.title, tk.content)) hits.push({ type: tk.status === 'done' ? '업무·완료' : '업무', cls: 'tk', id: tk.id, title: tk.title,
+      sub: tk.createdAt ? '등록 ' + new Date(tk.createdAt).toLocaleDateString('ko-KR') : '',
+      snippet: searchSnippet(tk.content, q), go: () => gotoTask(tk) });
+  });
+
+  state.memos.forEach(mo => {
+    if(has(mo.title, memoBodyText(mo.body))) hits.push({ type: '메모', cls: 'mo', id: mo.id, title: mo.title || '제목 없음',
+      sub: mo.updatedAt ? '수정 ' + new Date(mo.updatedAt).toLocaleDateString('ko-KR') : '',
+      snippet: searchSnippet(mo.body, q), go: () => gotoMemo(mo) });
+  });
+
+  state.campaigns.forEach(cp => {
+    const mediaHit = (cp.mediaRows || []).find(m => has(m.media));
+    if(has(cp.name, cp.note) || mediaHit) {
+      const p = getCampaignPeriod(cp);
+      hits.push({ type: '캠페인', cls: 'cp', id: cp.id, title: cp.name,
+        sub: p ? `${p.start.replace(/-/g,'.')} ~ ${p.end.replace(/-/g,'.')}` : `매체 ${(cp.mediaRows||[]).length}개`,
+        snippet: mediaHit ? `매체: ${mediaHit.media}` : searchSnippet(cp.note, q), go: () => gotoCampaign(cp) });
+    }
+  });
+
+  (state.contacts || []).forEach(ct => {
+    if(has(ct.media, ct.name, ct.team, ct.phone, ct.email, ct.note)) hits.push({ type: '담당자', cls: 'ct', id: ct.id,
+      title: `${ct.name || '이름 없음'} · ${ct.media || '매체 미지정'}`,
+      sub: [ct.phone, ct.email].filter(Boolean).join(' · '),
+      snippet: ct.note || '', go: () => gotoInfoRow('contact', ct.id) });
+  });
+
+  (state.accounts || []).forEach(ac => {
+    if(has(ac.service, ac.loginId, ac.owner, ac.note)) hits.push({ type: '계정', cls: 'ac', id: ac.id,
+      title: ac.service || '이름 없음',
+      sub: ac.loginId ? 'ID ' + ac.loginId : '',
+      snippet: ac.note || '', go: () => gotoInfoRow('account', ac.id) });
+  });
+
+  searchHits = hits.slice(0, 40);
+  if(!searchHits.length) {
+    box.innerHTML = `<div class="search-hint">"${escHtml(q)}"에 대한 결과가 없어요.</div>`;
+    return;
+  }
+  box.innerHTML = searchHits.map((h, i) => `
+    <button class="search-row${i === 0 ? ' sel' : ''}" data-idx="${i}" onclick="pickSearch(${i})">
+      <span class="search-type ${h.cls}">${h.type}</span>
+      <span class="search-main">
+        <span class="search-title">${escHtml(h.title)}</span>
+        ${h.snippet ? `<span class="search-snip">${escHtml(h.snippet)}</span>` : ''}
+      </span>
+      ${h.sub ? `<span class="search-sub">${escHtml(h.sub)}</span>` : ''}
+    </button>`).join('');
+}
+
+function searchKeydown(e) {
+  if(e.key === 'Escape') { closeSearch(); return; }
+  if(!searchHits.length) return;
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    searchSel = (searchSel + (e.key === 'ArrowDown' ? 1 : -1) + searchHits.length) % searchHits.length;
+    const rows = document.querySelectorAll('.search-row');
+    rows.forEach((r, i) => r.classList.toggle('sel', i === searchSel));
+    if(rows[searchSel]) rows[searchSel].scrollIntoView({ block: 'nearest' });
+  } else if(e.key === 'Enter') {
+    e.preventDefault();
+    pickSearch(searchSel);
+  }
+}
+
+function pickSearch(idx) {
+  const hit = searchHits[idx];
+  if(!hit) return;
+  closeSearch();
+  setTimeout(hit.go, 60); // 모달이 닫힌 뒤 이동해야 스크롤이 제대로 잡힘
+}
+
+// 이동한 곳에서 어떤 항목인지 알아볼 수 있게 잠깐 깜빡여준다
+function flashTarget(selector, tries) {
+  tries = tries || 0;
+  const el = document.querySelector(selector);
+  if(!el) {
+    if(tries < 10) setTimeout(() => flashTarget(selector, tries + 1), 100);
+    return;
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('search-flash');
+  setTimeout(() => el.classList.remove('search-flash'), 1800);
+}
+
+function gotoEvent(ev) {
+  switchTab('cal');
+  state.selectedDate = ev.date;
+  const d = new Date(ev.date + 'T00:00:00');
+  state.currentYear = d.getFullYear(); state.currentMonth = d.getMonth();
+  renderAll();
+  flashTarget(`.event-item[data-event-id="${ev.id}"]`);
+}
+
+function gotoTask(tk) {
+  switchTab('sheet');
+  state.sheetTaskTab = tk.status === 'done' ? 'done' : 'todo';
+  renderSheet();
+  flashTarget(`.kanban-card[data-task-id="${tk.id}"]`);
+}
+
+function gotoMemo(mo) {
+  switchTab('memo');
+  selectMemo(mo.id);
+  flashTarget(`.memo-list-item[data-id="${mo.id}"]`);
+}
+
+function gotoCampaign(cp) {
+  if(workspace === 'team') { showToast('캠페인 현황은 내 데이터에서만 볼 수 있어요'); return; }
+  switchTab('campaign');
+  cpCollapsed[cp.id] = false; // 접혀 있으면 펼쳐서 보여줌
+  if(cpFilter !== 'all' && cp.liveStatus === 'ended') cpFilter = 'ended';
+  renderCampaignView();
+  flashTarget(`.ct-group-row[data-camp-id="${cp.id}"]`);
+}
+
+function gotoInfoRow(kind, id) {
+  switchTab('info');
+  infoTab = kind === 'account' ? 'account' : 'contact';
+  renderInfoView();
+  flashTarget(`.info-row[data-row-id="${id}"]`);
+}
+
 // ── Helpers ────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
@@ -1997,7 +2389,7 @@ function setCalTypeFilter(type) {
 // ── Tab ────────────────────────────────────────────────────────
 function switchTab(tab) {
   state.currentTab = tab;
-  ['home','cal','sheet','memo','campaign','budgetCalc'].forEach(t => {
+  ['home','cal','sheet','memo','campaign','budgetCalc','info'].forEach(t => {
     const viewEl = document.getElementById('view'+t.charAt(0).toUpperCase()+t.slice(1));
     if(viewEl) viewEl.classList.toggle('active', tab===t);
   });
@@ -2005,13 +2397,14 @@ function switchTab(tab) {
   document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
   const btn = document.getElementById('headerAddBtn');
   const labels = {cal:'일정 추가', sheet:'업무 추가', memo:'새 메모', campaign:'새 캠페인'};
-  btn.style.display = (tab === 'budgetCalc' || tab === 'home') ? 'none' : '';
+  btn.style.display = (tab === 'budgetCalc' || tab === 'home' || tab === 'info') ? 'none' : '';
   btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>${labels[tab]||'추가'}</span>`;
   if(tab==='home') renderHome();
   if(tab==='sheet') renderSheet();
   if(tab==='memo') renderMemoView();
   if(tab==='campaign') renderCampaignView();
   if(tab==='budgetCalc') renderBudgetCalc();
+  if(tab==='info') renderInfoView();
 }
 function headerAdd() {
   if(state.currentTab==='cal') openAddEventModal();
@@ -2449,7 +2842,7 @@ function renderDetail() {
   evs.forEach(ev => {
     const timeStr=formatTimeRange(ev.startTime,ev.endTime);
     const col=getEventColor(ev.title);
-    const item=document.createElement('div'); item.className='event-item';
+    const item=document.createElement('div'); item.className='event-item'; item.dataset.eventId=ev.id;
     item.innerHTML=`<div class="event-item-bar" style="background:${col?col.fg:'var(--blue)'}"></div><div class="event-item-content"><div class="event-item-title">${escHtml(ev.title)}</div>${timeStr?`<div class="event-item-time">⏰ ${escHtml(timeStr)}</div>`:''}</div><div class="event-item-actions"><button class="btn btn-ghost btn-xs" onclick="openEditItemModal('event','${ev.id}')">수정</button><button class="btn btn-danger btn-xs" onclick="confirmDeleteEvent('${ev.id}')">삭제</button></div>`;
     item.querySelector('.event-item-content').onclick=()=>openEditItemModal('event',ev.id);
     list.appendChild(item);
@@ -3331,7 +3724,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Keyboard ───────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  // Ctrl+K / ⌘K 로 어디서든 검색 열기
+  if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
   if(e.key!=='Escape') return;
+  if(document.getElementById('searchModal').classList.contains('open')) { closeSearch(); return; }
   if(rp.open){ closeRangePicker(); return; }
   if(document.getElementById('gcalModal').classList.contains('open')) { closeGcalModal(); return; }
   if(document.getElementById('itemModal').classList.contains('open')) closeModal('itemModal');
@@ -3510,6 +3910,7 @@ function renderAll() {
   renderCalQuickTasks();
   renderHome();
   if(state.currentTab==='sheet') renderSheet();
+  if(state.currentTab==='info') renderInfoView();
 }
 
 // ── Google Calendar iCal Sync ──────────────────────────────────
@@ -4873,6 +5274,7 @@ function renderCampaignView() {
     const campOrderFixed = cpFilter === 'ended' || cpSort !== 'manual'; // 자동 정렬 중엔 드래그 순서 변경 불가
     const gtr = document.createElement('tr');
     gtr.className = 'ct-group-row';
+    gtr.dataset.campId = camp.id;
     gtr.innerHTML = `
       <td><div class="ct-group-inner">
         <span class="ct-drag-handle${campOrderFixed ? ' ct-drag-handle-disabled' : ''}" title="${campOrderFixed ? '' : '드래그해서 순서 변경'}">${DRAG_HANDLE_SVG}</span>
