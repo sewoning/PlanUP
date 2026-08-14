@@ -1279,6 +1279,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
           </div>
           <input type="file" id="infoImportInput" accept=".json" style="display:none" onchange="handleInfoImport(event)">
           <button class="btn btn-ghost btn-sm" id="infoImportBtn" onclick="document.getElementById('infoImportInput').click()" title="JSON 파일로 담당자 목록 가져오기">가져오기</button>
+          <button class="btn btn-danger btn-sm" id="infoClearBtn" onclick="clearInfoSheet()" title="이 시트의 모든 항목 삭제">전체 삭제</button>
           <button class="btn btn-primary btn-sm" id="infoAddBtn" onclick="addInfoRow()">+ 추가</button>
         </div>
       </div>
@@ -2211,6 +2212,18 @@ function renameContactMedia(oldMedia, newMedia) {
   state.contacts.forEach(c => { if((c.media || '') === from) c.media = to; });
   save();
   renderInfoView();
+}
+
+// 가져오기가 합치기 방식이라, 새로 넣기 전에 싹 비울 수단이 필요하다
+function clearInfoSheet() {
+  const sheet = INFO_SHEETS[infoTab];
+  const n = (state[sheet.key] || []).length;
+  if(!n) { showToast('삭제할 항목이 없어요'); return; }
+  if(!confirm(`${sheet.label} ${n}건을 모두 삭제할까요?\n\n되돌릴 수 없어요. 필요하면 먼저 백업해주세요.`)) return;
+  state[sheet.key] = [];
+  save();
+  renderInfoView();
+  showToast(`${sheet.label} ${n}건을 삭제했어요`);
 }
 
 // 담당자 목록을 JSON 파일로 가져온다. 기존 항목은 지우지 않고, 이메일이 같으면 빈 칸만 채워 넣는다(합치기).
