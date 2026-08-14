@@ -556,13 +556,16 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .info-filter input::placeholder{color:var(--gray-400);}
 .info-filter-clear{border:none;background:transparent;cursor:pointer;color:var(--gray-400);font-size:12px;padding:2px 4px;border-radius:4px;}
 .info-filter-clear:hover{background:var(--gray-100);color:var(--gray-700);}
-.info-group-row>td{background:var(--gray-50);border-top:2px solid var(--gray-200);border-bottom:1px solid var(--gray-200);padding:7px 12px;}
-.info-group-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.info-media-input{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px;font-size:13.5px;font-weight:700;color:var(--gray-900);font-family:inherit;min-width:120px;transition:border-color .12s,background .12s;}
-.info-media-input:hover{border-color:var(--gray-200);}
+.info-group-row>td{background:var(--blue-light);border-top:2px solid var(--gray-200);border-bottom:1px solid var(--gray-200);padding:7px 12px;}
+.info-group-inner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.info-group-label{font-size:10.5px;font-weight:700;color:var(--blue);background:#fff;border-radius:20px;padding:3px 9px;flex-shrink:0;letter-spacing:.3px;}
+/* 담당자 줄은 매체사 아래에 속한다는 게 보이도록 살짝 들여쓴다 (그룹이 있는 담당자 시트에서만) */
+.info-table.grouped .info-row td:first-child{padding-left:22px;}
+.info-media-input{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px;font-size:13.5px;font-weight:700;color:var(--blue-dark);font-family:inherit;min-width:150px;transition:border-color .12s,background .12s;}
+.info-media-input:hover{border-color:var(--blue);background:rgba(255,255,255,.6);}
 .info-media-input:focus{outline:none;border-color:var(--blue);background:#fff;}
-.info-media-input::placeholder{color:var(--gray-300);font-weight:600;}
-.info-group-count{font-size:11.5px;color:var(--gray-500);font-weight:600;}
+.info-media-input::placeholder{color:var(--blue);opacity:.5;font-weight:600;}
+.info-group-count{font-size:11.5px;color:var(--blue-dark);font-weight:600;opacity:.75;}
 .info-notice{font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
 .info-notice.warn{background:var(--warn-bg);color:var(--warn-text);}
 .info-table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);}
@@ -2134,13 +2137,14 @@ let infoTab = 'contact'; // 'contact' | 'account'
 const INFO_SHEETS = {
   contact: {
     key: 'contacts', label: '매체 담당자',
+    // media는 그룹 머리글로 따로 표시되고, 아래 표에는 사람 정보 열만 들어간다
     cols: [
-      { f: 'media', h: '매체', w: '15%', ph: '예) 네이버' },
-      { f: 'name',  h: '담당자', w: '12%', ph: '이름' },
-      { f: 'team',  h: '소속/직함', w: '15%', ph: '예) 광고사업팀 대리' },
-      { f: 'phone', h: '연락처', w: '15%', ph: '010-0000-0000' },
-      { f: 'email', h: '이메일', w: '20%', ph: 'name@media.com' },
-      { f: 'note',  h: '비고', w: '23%', ph: '메모' }
+      { f: 'media', h: '매체사', w: '0', ph: '예) 네이버', groupOnly: true },
+      { f: 'name',  h: '담당자명', w: '16%', ph: '예) 김세원' },
+      { f: 'team',  h: '부서 / 직급', w: '20%', ph: '예) 광고사업팀 대리' },
+      { f: 'phone', h: '휴대폰', w: '18%', ph: '010-0000-0000' },
+      { f: 'email', h: '이메일', w: '24%', ph: 'name@media.com' },
+      { f: 'note',  h: '비고', w: '22%', ph: '메모' }
     ]
   },
   account: {
@@ -2279,8 +2283,9 @@ function renderInfoView() {
          onchange="updateInfoRow('${r.id}','${c.f}',this.value)">`;
 
   // 매체 담당자는 한 매체에 여러 명을 둘 수 있어서 매체별로 묶어서 보여준다
+  table.classList.toggle('grouped', infoTab === 'contact');
   if(infoTab === 'contact') {
-    const personCols = sheet.cols.filter(c => c.f !== 'media');
+    const personCols = sheet.cols.filter(c => !c.groupOnly);
     document.getElementById('infoThead').innerHTML =
       `<tr>${personCols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
 
@@ -2296,7 +2301,8 @@ function renderInfoView() {
       <tr class="info-group-row">
         <td colspan="${personCols.length + 1}">
           <div class="info-group-inner">
-            <input class="info-media-input" value="${escHtml(g.key)}" placeholder="매체명"
+            <span class="info-group-label">매체사</span>
+            <input class="info-media-input" value="${escHtml(g.key)}" placeholder="매체사명을 입력하세요"
               onchange="renameContactMedia('${escHtml(g.key).replace(/'/g, "\\'")}', this.value)">
             <span class="info-group-count">담당자 ${g.items.length}명</span>
             <button class="ct-add-media-btn" onclick="addContactToMedia('${escHtml(g.key).replace(/'/g, "\\'")}')">+ 담당자</button>
