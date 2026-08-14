@@ -2147,11 +2147,10 @@ const INFO_SHEETS = {
     // media는 그룹 머리글로 따로 표시되고, 아래 표에는 사람 정보 열만 들어간다
     cols: [
       { f: 'media', h: '매체사', w: '0', ph: '예) 네이버', groupOnly: true },
-      { f: 'name',  h: '담당자명', w: '16%', ph: '예) 김세원' },
-      { f: 'team',  h: '부서 / 직급', w: '20%', ph: '예) 광고사업팀 대리' },
-      { f: 'phone', h: '휴대폰', w: '18%', ph: '010-0000-0000' },
-      { f: 'email', h: '이메일', w: '24%', ph: 'name@media.com' },
-      { f: 'note',  h: '비고', w: '22%', ph: '메모' }
+      { f: 'name',  h: '담당자명', w: '20%', ph: '예) 김세원' },
+      { f: 'phone', h: '휴대폰', w: '22%', ph: '010-0000-0000' },
+      { f: 'email', h: '이메일', w: '32%', ph: 'name@media.com' },
+      { f: 'note',  h: '비고', w: '26%', ph: '메모' }
     ]
   },
   account: {
@@ -2198,7 +2197,7 @@ function addInfoRow() {
 function addContactToMedia(media) {
   const sibling = state.contacts.find(c => (c.media || '') === (media || ''));
   const row = { id: uid(), media: media || '', groupEmail: (sibling && sibling.groupEmail) || '',
-    name: '', team: '', phone: '', email: '', note: '' };
+    name: '', phone: '', email: '', note: '' };
   state.contacts.push(row);
   save();
   renderInfoView();
@@ -2234,7 +2233,7 @@ function handleInfoImport(evt) {
       const email = String(r.email || '').trim().toLowerCase();
       const exist = email ? state.contacts.find(c => String(c.email || '').trim().toLowerCase() === email) : null;
       if(exist) {
-        ['media','name','team','phone','note','groupEmail'].forEach(f => {
+        ['media','name','phone','note','groupEmail'].forEach(f => {
           if(!exist[f] && r[f]) { exist[f] = String(r[f]); }
         });
         merged++;
@@ -2477,7 +2476,7 @@ function runSearch() {
   // 담당자·계정은 팀 공유 시트 전용이라, 개인 데이터를 보고 있을 땐 검색 결과에 넣지 않는다
   if(workspace === 'team') {
   (state.contacts || []).forEach(ct => {
-    if(has(ct.media, ct.name, ct.team, ct.phone, ct.email, ct.note, ct.groupEmail)) hits.push({ type: '담당자', cls: 'ct', id: ct.id,
+    if(has(ct.media, ct.name, ct.phone, ct.email, ct.note, ct.groupEmail)) hits.push({ type: '담당자', cls: 'ct', id: ct.id,
       title: `${ct.name || '이름 없음'} · ${ct.media || '매체 미지정'}`,
       sub: [ct.phone, ct.email || ct.groupEmail].filter(Boolean).join(' · '),
       snippet: ct.note || '', go: () => gotoInfoRow('contact', ct.id) });
