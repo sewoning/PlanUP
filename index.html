@@ -566,12 +566,11 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .info-media-input:focus{outline:none;border-color:var(--blue);background:#fff;}
 .info-media-input::placeholder{color:var(--blue);opacity:.5;font-weight:600;}
 .info-group-count{font-size:11.5px;color:var(--blue-dark);font-weight:600;opacity:.75;}
-.info-group-mail{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.7);border-radius:20px;padding:2px 4px 2px 10px;}
-.info-group-mail-label{font-size:10.5px;font-weight:700;color:var(--blue-dark);opacity:.75;white-space:nowrap;}
-.info-group-mail-input{border:1px solid transparent;background:transparent;border-radius:14px;padding:4px 8px;font-size:12.5px;color:var(--gray-800);font-family:inherit;width:180px;max-width:38vw;transition:border-color .12s,background .12s;}
+.info-group-mail-input{width:100%;border:1px solid transparent;background:rgba(255,255,255,.7);border-radius:6px;padding:6px 8px;font-size:12.5px;font-weight:600;color:var(--blue-dark);font-family:inherit;transition:border-color .12s,background .12s;}
 .info-group-mail-input:hover{border-color:var(--blue);}
 .info-group-mail-input:focus{outline:none;border-color:var(--blue);background:#fff;}
-.info-group-mail-input::placeholder{color:var(--gray-400);}
+.info-group-mail-input::placeholder{color:var(--blue);opacity:.45;font-weight:500;}
+.info-group-acts{display:flex;align-items:center;gap:4px;justify-content:flex-end;}
 .info-notice{font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
 .info-notice.warn{background:var(--warn-bg);color:var(--warn-text);}
 .info-table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);}
@@ -2317,30 +2316,38 @@ function renderInfoView() {
       g.items.push(r);
     });
 
-    document.getElementById('infoTbody').innerHTML = groups.map(g => `
+    // 광고팀 메일이 아래 담당자들의 "이메일" 칸과 세로로 맞아떨어지도록, 그룹 줄도 같은 열 구조로 만든다
+    const emailIdx = personCols.findIndex(c => c.f === 'email');
+    const tailCount = personCols.length - emailIdx - 1;
+
+    document.getElementById('infoTbody').innerHTML = groups.map(g => {
+      const esc = escHtml(g.key).replace(/'/g, "\\'");
+      return `
       <tr class="info-group-row">
-        <td colspan="${personCols.length + 1}">
+        <td colspan="${emailIdx}">
           <div class="info-group-inner">
             <span class="info-group-label">매체사</span>
             <input class="info-media-input" value="${escHtml(g.key)}" placeholder="매체사명을 입력하세요"
-              onchange="renameContactMedia('${escHtml(g.key).replace(/'/g, "\\'")}', this.value)">
-            <span class="info-group-mail">
-              <span class="info-group-mail-label">광고팀 메일</span>
-              <input class="info-group-mail-input" value="${escHtml((g.items[0] && g.items[0].groupEmail) || '')}" placeholder="ad@media.com"
-                onchange="updateContactGroupEmail('${escHtml(g.key).replace(/'/g, "\\'")}', this.value)">
-            </span>
+              onchange="renameContactMedia('${esc}', this.value)">
             <span class="info-group-count">담당자 ${g.items.length}명</span>
-            <button class="ct-add-media-btn" onclick="addContactToMedia('${escHtml(g.key).replace(/'/g, "\\'")}')">+ 담당자</button>
-            <button class="ct-icon-btn del" onclick="deleteContactMedia('${escHtml(g.key).replace(/'/g, "\\'")}')" title="매체 전체 삭제">✕</button>
+            <button class="ct-add-media-btn" onclick="addContactToMedia('${esc}')">+ 담당자</button>
+            <button class="ct-icon-btn del" onclick="deleteContactMedia('${esc}')" title="매체 전체 삭제">✕</button>
           </div>
         </td>
+        <td>
+          <input class="info-group-mail-input" value="${escHtml((g.items[0] && g.items[0].groupEmail) || '')}"
+            placeholder="광고팀 대표 메일" title="매체사 대표 메일 (담당자 전원 공통)"
+            onchange="updateContactGroupEmail('${esc}', this.value)">
+        </td>
+        ${'<td></td>'.repeat(tailCount + 1)}
       </tr>
       ${g.items.map(r => `
         <tr class="info-row" data-row-id="${r.id}">
           ${personCols.map(c => `<td>${cellHtml(r, c)}</td>`).join('')}
           <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="이 담당자 삭제">✕</button></td>
         </tr>`).join('')}
-    `).join('');
+    `;
+    }).join('');
     if(q) empty.style.display = 'none';
     return;
   }
