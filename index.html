@@ -549,6 +549,20 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 /* ── 정보 탭 (매체 담당자 / 계정) ── */
 .info-view{flex:1;display:flex;flex-direction:column;gap:14px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:18px 20px;min-height:420px;}
 .info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.info-head-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.info-filter{display:flex;align-items:center;gap:6px;border:1px solid var(--gray-200);border-radius:var(--r-sm);padding:0 10px;height:34px;background:#fff;transition:border-color .12s;}
+.info-filter:focus-within{border-color:var(--blue);}
+.info-filter input{border:none;outline:none;font-size:13px;font-family:inherit;color:var(--gray-800);background:transparent;width:190px;max-width:42vw;}
+.info-filter input::placeholder{color:var(--gray-400);}
+.info-filter-clear{border:none;background:transparent;cursor:pointer;color:var(--gray-400);font-size:12px;padding:2px 4px;border-radius:4px;}
+.info-filter-clear:hover{background:var(--gray-100);color:var(--gray-700);}
+.info-group-row>td{background:var(--gray-50);border-top:2px solid var(--gray-200);border-bottom:1px solid var(--gray-200);padding:7px 12px;}
+.info-group-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.info-media-input{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px;font-size:13.5px;font-weight:700;color:var(--gray-900);font-family:inherit;min-width:120px;transition:border-color .12s,background .12s;}
+.info-media-input:hover{border-color:var(--gray-200);}
+.info-media-input:focus{outline:none;border-color:var(--blue);background:#fff;}
+.info-media-input::placeholder{color:var(--gray-300);font-weight:600;}
+.info-group-count{font-size:11.5px;color:var(--gray-500);font-weight:600;}
 .info-notice{font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
 .info-notice.warn{background:var(--warn-bg);color:var(--warn-text);}
 .info-table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);}
@@ -1249,7 +1263,14 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
             계정 <span class="kanban-count" id="infoAccountCount"></span>
           </button>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="addInfoRow()">+ 행 추가</button>
+        <div class="info-head-right">
+          <div class="info-filter">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--gray-400);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="infoSearch" placeholder="매체·이름·연락처 검색" oninput="setInfoQuery(this.value)" autocomplete="off">
+            <button class="info-filter-clear" id="infoSearchClear" onclick="setInfoQuery('')" style="display:none">✕</button>
+          </div>
+          <button class="btn btn-primary btn-sm" id="infoAddBtn" onclick="addInfoRow()">+ 추가</button>
+        </div>
       </div>
       <div id="infoNotice"></div>
       <div class="info-table-wrap">
@@ -2134,7 +2155,23 @@ const INFO_SHEETS = {
   }
 };
 
+let infoQuery = '';
+
 function setInfoTab(tab) { infoTab = tab; renderInfoView(); }
+
+function setInfoQuery(q) {
+  infoQuery = q;
+  const input = document.getElementById('infoSearch');
+  if(input && input.value !== q) input.value = q;
+  renderInfoView();
+}
+
+function focusInfoRow(id) {
+  setTimeout(() => {
+    const el = document.querySelector(`.info-row[data-row-id="${id}"] .info-input`);
+    if(el) el.focus();
+  }, 40);
+}
 
 function addInfoRow() {
   const sheet = INFO_SHEETS[infoTab];
@@ -2143,11 +2180,33 @@ function addInfoRow() {
   state[sheet.key].push(row);
   save();
   renderInfoView();
-  // 새로 만든 행의 첫 칸에 바로 입력할 수 있게 커서를 둔다
-  setTimeout(() => {
-    const el = document.querySelector(`.info-row[data-row-id="${row.id}"] .info-input`);
-    if(el) el.focus();
-  }, 40);
+  focusInfoRow(row.id); // 새로 만든 행에 바로 입력할 수 있게
+}
+
+// 같은 매체에 담당자를 여러 명 둘 수 있게, 해당 매체 그룹에 사람만 한 명 더 추가한다
+function addContactToMedia(media) {
+  const row = { id: uid(), media: media || '', name: '', team: '', phone: '', email: '', note: '' };
+  state.contacts.push(row);
+  save();
+  renderInfoView();
+  focusInfoRow(row.id);
+}
+
+// 그룹 헤더에서 매체명을 고치면 그 매체에 속한 담당자 전원의 매체명이 함께 바뀐다
+function renameContactMedia(oldMedia, newMedia) {
+  const from = String(oldMedia || ''), to = String(newMedia || '').trim();
+  if(from === to) return;
+  state.contacts.forEach(c => { if((c.media || '') === from) c.media = to; });
+  save();
+  renderInfoView();
+}
+
+function deleteContactMedia(media) {
+  const items = state.contacts.filter(c => (c.media || '') === media);
+  if(!confirm(`"${media || '매체 미지정'}"와 담당자 ${items.length}명을 모두 삭제할까요?`)) return;
+  state.contacts = state.contacts.filter(c => (c.media || '') !== media);
+  save();
+  renderInfoView();
 }
 
 function updateInfoRow(id, field, val) {
@@ -2183,40 +2242,86 @@ function renderInfoView() {
   document.getElementById('infoTabAccount').classList.toggle('active', infoTab === 'account');
   document.getElementById('infoContactCount').textContent = (state.contacts || []).length;
   document.getElementById('infoAccountCount').textContent = (state.accounts || []).length;
+  document.getElementById('infoAddBtn').textContent = infoTab === 'contact' ? '+ 매체 추가' : '+ 행 추가';
+  document.getElementById('infoSearch').placeholder = infoTab === 'contact' ? '매체·이름·연락처 검색' : '서비스·아이디 검색';
+  document.getElementById('infoSearchClear').style.display = infoQuery ? '' : 'none';
 
   const notice = document.getElementById('infoNotice');
   notice.innerHTML = infoTab === 'account'
     ? `<div class="info-notice warn">🔐 비밀번호는 <b>암호화되지 않은 상태로 저장</b>돼요. 공유 시트를 여는 팀원은 모두 볼 수 있으니 중요한 개인 계정 비밀번호는 넣지 마세요.</div>`
     : `<div class="info-notice">팀 공유 시트라 팀원 모두가 함께 보고 수정해요.</div>`;
 
-  const rows = state[sheet.key] || [];
-  document.getElementById('infoThead').innerHTML =
-    `<tr>${sheet.cols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
+  const q = infoQuery.trim().toLowerCase();
+  const hit = r => !q || sheet.cols.some(c => String(r[c.f] || '').toLowerCase().includes(q));
+  const rows = (state[sheet.key] || []).filter(hit);
+  const total = (state[sheet.key] || []).length;
 
-  const tbody = document.getElementById('infoTbody');
   const empty = document.getElementById('infoEmpty');
   const table = document.getElementById('infoTable');
   if(!rows.length) {
     table.style.display = 'none';
     empty.style.display = '';
-    empty.innerHTML = `아직 등록된 ${sheet.label} 정보가 없어요.<br>"+ 행 추가"를 눌러 시작하세요.`;
+    empty.innerHTML = q
+      ? `"${escHtml(infoQuery)}"에 맞는 결과가 없어요.`
+      : `아직 등록된 ${sheet.label} 정보가 없어요.<br>"${infoTab === 'contact' ? '+ 매체 추가' : '+ 행 추가'}"를 눌러 시작하세요.`;
     return;
   }
   table.style.display = '';
   empty.style.display = 'none';
-  tbody.innerHTML = rows.map(r => `
+
+  const cellHtml = (r, c) => c.secret
+    ? `<div class="info-secret">
+         <input class="info-input" type="password" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
+           onchange="updateInfoRow('${r.id}','${c.f}',this.value)">
+         <button class="info-eye" onclick="toggleSecret(this)" title="보기/숨기기">👁</button>
+       </div>`
+    : `<input class="info-input" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
+         onchange="updateInfoRow('${r.id}','${c.f}',this.value)">`;
+
+  // 매체 담당자는 한 매체에 여러 명을 둘 수 있어서 매체별로 묶어서 보여준다
+  if(infoTab === 'contact') {
+    const personCols = sheet.cols.filter(c => c.f !== 'media');
+    document.getElementById('infoThead').innerHTML =
+      `<tr>${personCols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
+
+    const groups = [];
+    rows.forEach(r => {
+      const key = (r.media || '');
+      let g = groups.find(x => x.key === key);
+      if(!g) { g = { key, items: [] }; groups.push(g); }
+      g.items.push(r);
+    });
+
+    document.getElementById('infoTbody').innerHTML = groups.map(g => `
+      <tr class="info-group-row">
+        <td colspan="${personCols.length + 1}">
+          <div class="info-group-inner">
+            <input class="info-media-input" value="${escHtml(g.key)}" placeholder="매체명"
+              onchange="renameContactMedia('${escHtml(g.key).replace(/'/g, "\\'")}', this.value)">
+            <span class="info-group-count">담당자 ${g.items.length}명</span>
+            <button class="ct-add-media-btn" onclick="addContactToMedia('${escHtml(g.key).replace(/'/g, "\\'")}')">+ 담당자</button>
+            <button class="ct-icon-btn del" onclick="deleteContactMedia('${escHtml(g.key).replace(/'/g, "\\'")}')" title="매체 전체 삭제">✕</button>
+          </div>
+        </td>
+      </tr>
+      ${g.items.map(r => `
+        <tr class="info-row" data-row-id="${r.id}">
+          ${personCols.map(c => `<td>${cellHtml(r, c)}</td>`).join('')}
+          <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="이 담당자 삭제">✕</button></td>
+        </tr>`).join('')}
+    `).join('');
+    if(q) empty.style.display = 'none';
+    return;
+  }
+
+  document.getElementById('infoThead').innerHTML =
+    `<tr>${sheet.cols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
+  document.getElementById('infoTbody').innerHTML = rows.map(r => `
     <tr class="info-row" data-row-id="${r.id}">
-      ${sheet.cols.map(c => `<td>${c.secret
-        ? `<div class="info-secret">
-             <input class="info-input" type="password" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
-               onchange="updateInfoRow('${r.id}','${c.f}',this.value)">
-             <button class="info-eye" onclick="toggleSecret(this)" title="보기/숨기기">👁</button>
-           </div>`
-        : `<input class="info-input" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
-             onchange="updateInfoRow('${r.id}','${c.f}',this.value)">`
-      }</td>`).join('')}
+      ${sheet.cols.map(c => `<td>${cellHtml(r, c)}</td>`).join('')}
       <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="삭제">✕</button></td>
     </tr>`).join('');
+  if(q && rows.length < total) { /* 필터 중 안내는 검색창 자체로 충분 */ }
 }
 
 // ── 전체 검색 ──────────────────────────────────────────────────
