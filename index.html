@@ -546,7 +546,7 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .hist-lines{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px;}
 .hist-lines li{font-size:12.5px;color:var(--gray-700);line-height:1.6;}
 
-/* ── 정보 탭 (매체 담당자 / 계정) ── */
+/* ── 정보 탭 (매체 컨택포인트 / 계정) ── */
 .info-view{flex:1;display:flex;flex-direction:column;gap:14px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:18px 20px;min-height:420px;}
 .info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .info-head-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
@@ -571,6 +571,13 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .info-group-mail-input:focus{outline:none;border-color:var(--blue);background:#fff;}
 .info-group-mail-input::placeholder{color:var(--blue);opacity:.45;font-weight:500;}
 .info-group-acts{display:flex;align-items:center;gap:4px;justify-content:flex-end;}
+.info-picker{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--r-md);}
+.info-chip{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid var(--gray-200);background:#fff;border-radius:var(--r-full);font-size:12.5px;font-weight:600;color:var(--gray-700);font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .12s;}
+.info-chip:hover{border-color:var(--blue);color:var(--blue);}
+.info-chip b{font-weight:700;font-size:11px;color:var(--gray-400);}
+.info-chip.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+.info-chip.on b{color:rgba(255,255,255,.8);}
+.info-chip.more{background:transparent;border-style:dashed;color:var(--gray-500);}
 .info-notice{font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
 .info-notice.warn{background:var(--warn-bg);color:var(--warn-text);}
 .info-table-wrap{overflow-x:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);}
@@ -1259,13 +1266,13 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </div>
   </div>
 
-  <!-- ═══ 정보 (매체 담당자 / 계정) ═══ -->
+  <!-- ═══ 정보 (매체 컨택포인트 / 계정) ═══ -->
   <div class="view" id="viewInfo">
     <div class="info-view">
       <div class="info-head">
         <div class="sheet-tab-row" style="width:auto">
           <button class="sheet-tab-btn" id="infoTabContact" onclick="setInfoTab('contact')">
-            매체 담당자 <span class="kanban-count" id="infoContactCount"></span>
+            매체 컨택포인트 <span class="kanban-count" id="infoContactCount"></span>
           </button>
           <button class="sheet-tab-btn" id="infoTabAccount" onclick="setInfoTab('account')">
             계정 <span class="kanban-count" id="infoAccountCount"></span>
@@ -1283,6 +1290,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
           <button class="btn btn-primary btn-sm" id="infoAddBtn" onclick="addInfoRow()">+ 추가</button>
         </div>
       </div>
+      <div id="infoMediaPicker"></div>
       <div id="infoNotice"></div>
       <div class="info-table-wrap">
         <table class="info-table" id="infoTable">
@@ -1595,7 +1603,7 @@ let authUser = null; // 로그인한 사용자 (supabase auth user 객체)
 let state = {
   events: [], tasks: [], memos: [], campaigns: [],
   memoFolders: [],
-  contacts: [],   // 매체 담당자 연락처
+  contacts: [],   // 매체 컨택포인트 연락처
   accounts: [],   // 계정 정보
   memoUncatCollapsed: false,
   selectedMemoId: null,
@@ -2139,12 +2147,12 @@ window.addEventListener('beforeunload', () => {
   if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
 });
 
-// ── 정보 탭 (매체 담당자 / 계정) ────────────────────────────────
+// ── 정보 탭 (매체 컨택포인트 / 계정) ────────────────────────────────
 // 컬럼 정의를 한 곳에 두고 표를 만들어서, 두 시트가 같은 코드로 굴러가게 한다
 let infoTab = 'contact'; // 'contact' | 'account'
 const INFO_SHEETS = {
   contact: {
-    key: 'contacts', label: '매체 담당자',
+    key: 'contacts', label: '매체 컨택포인트',
     // media는 그룹 머리글로 따로 표시되고, 아래 표에는 사람 정보 열만 들어간다
     cols: [
       { f: 'media', h: '매체사', w: '0', ph: '예) 네이버', groupOnly: true },
@@ -2167,8 +2175,44 @@ const INFO_SHEETS = {
 };
 
 let infoQuery = '';
+let infoMedia = '';          // 선택한 매체사 (빈 값이면 전체)
+let infoPickerOpen = false;  // 매체 목록 펼침 여부
 
 function setInfoTab(tab) { infoTab = tab; renderInfoView(); }
+
+function setInfoMedia(m) {
+  infoMedia = (infoMedia === m) ? '' : m;  // 같은 걸 다시 누르면 선택 해제
+  renderInfoView();
+  if(infoMedia) {
+    // 고른 매체가 화면에 보이도록 이동
+    setTimeout(() => {
+      const el = document.querySelector('.info-group-row');
+      if(el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 40);
+  }
+}
+function toggleInfoPicker() { infoPickerOpen = !infoPickerOpen; renderInfoView(); }
+
+// 매체사를 클릭 한 번으로 고를 수 있는 목록. 담당자 수가 많은 순으로 보여준다.
+function renderInfoMediaPicker() {
+  const box = document.getElementById('infoMediaPicker');
+  if(!box) return;
+  if(infoTab !== 'contact') { box.innerHTML = ''; return; }
+  const counts = {};
+  (state.contacts || []).forEach(c => { const m = (c.media || '').trim() || '(매체 미지정)'; counts[m] = (counts[m] || 0) + 1; });
+  const list = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if(!list.length) { box.innerHTML = ''; return; }
+
+  const COLLAPSED = 12;
+  const shown = infoPickerOpen ? list : list.slice(0, COLLAPSED);
+  const rest = list.length - shown.length;
+  box.innerHTML = `
+    <div class="info-picker">
+      <button class="info-chip${infoMedia === '' ? ' on' : ''}" onclick="setInfoMedia('')">전체 <b>${(state.contacts || []).length}</b></button>
+      ${shown.map(([m, n]) => `<button class="info-chip${infoMedia === m ? ' on' : ''}" onclick="setInfoMedia('${escHtml(m).replace(/'/g, "\\'")}')">${escHtml(m)} <b>${n}</b></button>`).join('')}
+      ${(rest > 0 || infoPickerOpen) ? `<button class="info-chip more" onclick="toggleInfoPicker()">${infoPickerOpen ? '▴ 접기' : `▾ 전체 ${list.length}개 매체 보기`}</button>` : ''}
+    </div>`;
+}
 
 function setInfoQuery(q) {
   infoQuery = q;
@@ -2231,7 +2275,7 @@ function handleInfoImport(evt) {
   const file = evt.target.files && evt.target.files[0];
   evt.target.value = '';
   if(!file) return;
-  if(infoTab !== 'contact') { showToast('가져오기는 매체 담당자 시트에서만 지원해요'); return; }
+  if(infoTab !== 'contact') { showToast('가져오기는 매체 컨택포인트 시트에서만 지원해요'); return; }
   const reader = new FileReader();
   reader.onload = () => {
     let rows;
@@ -2324,6 +2368,7 @@ function renderInfoView() {
   document.getElementById('infoImportBtn').style.display = infoTab === 'contact' ? '' : 'none';
   document.getElementById('infoSearch').placeholder = infoTab === 'contact' ? '매체·이름·연락처 검색' : '서비스·아이디 검색';
   document.getElementById('infoSearchClear').style.display = infoQuery ? '' : 'none';
+  renderInfoMediaPicker();
 
   const notice = document.getElementById('infoNotice');
   notice.innerHTML = infoTab === 'account'
@@ -2334,7 +2379,10 @@ function renderInfoView() {
   // 표에 없는 그룹 정보(매체 대표 메일)도 검색 대상에 포함
   const hit = r => !q || sheet.cols.some(c => String(r[c.f] || '').toLowerCase().includes(q))
     || String(r.groupEmail || '').toLowerCase().includes(q);
-  const rows = (state[sheet.key] || []).filter(hit);
+  // 매체사를 골랐으면 그 매체만 (담당자 시트에서만 적용)
+  const mediaHit = r => !(infoTab === 'contact' && infoMedia)
+    || ((r.media || '').trim() || '(매체 미지정)') === infoMedia;
+  const rows = (state[sheet.key] || []).filter(r => hit(r) && mediaHit(r));
   const total = (state[sheet.key] || []).length;
 
   const empty = document.getElementById('infoEmpty');
@@ -2344,7 +2392,9 @@ function renderInfoView() {
     empty.style.display = '';
     empty.innerHTML = q
       ? `"${escHtml(infoQuery)}"에 맞는 결과가 없어요.`
-      : `아직 등록된 ${sheet.label} 정보가 없어요.<br>"${infoTab === 'contact' ? '+ 매체 추가' : '+ 행 추가'}"를 눌러 시작하세요.`;
+      : infoMedia
+        ? `${escHtml(infoMedia)}에 등록된 담당자가 없어요.`
+        : `아직 등록된 ${sheet.label} 정보가 없어요.<br>"${infoTab === 'contact' ? '+ 매체 추가' : '+ 행 추가'}"를 눌러 시작하세요.`;
     return;
   }
   table.style.display = '';
@@ -2359,7 +2409,7 @@ function renderInfoView() {
     : `<input class="info-input" value="${escHtml(r[c.f] || '')}" placeholder="${c.ph}"
          onchange="updateInfoRow('${r.id}','${c.f}',this.value)">`;
 
-  // 매체 담당자는 한 매체에 여러 명을 둘 수 있어서 매체별로 묶어서 보여준다
+  // 매체 컨택포인트는 한 매체에 여러 명을 둘 수 있어서 매체별로 묶어서 보여준다
   table.classList.toggle('grouped', infoTab === 'contact');
   if(infoTab === 'contact') {
     const personCols = sheet.cols.filter(c => !c.groupOnly);
@@ -2431,7 +2481,7 @@ function openSearch() {
   input.value = '';
   searchHits = []; searchSel = 0;
   document.getElementById('searchResults').innerHTML =
-    '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 담당자 · 계정을 한 번에 찾아요.</div>';
+    '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 컨택포인트 · 계정을 한 번에 찾아요.</div>';
   setTimeout(() => input.focus(), 60);
 }
 function closeSearch() { document.getElementById('searchModal').classList.remove('open'); }
@@ -2452,7 +2502,7 @@ function runSearch() {
   searchSel = 0;
   if(q.length < 1) {
     searchHits = [];
-    box.innerHTML = '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 담당자 · 계정을 한 번에 찾아요.</div>';
+    box.innerHTML = '<div class="search-hint">검색어를 입력하세요. 일정 · 업무 · 메모 · 캠페인 · 매체 컨택포인트 · 계정을 한 번에 찾아요.</div>';
     return;
   }
   const has = (...vals) => vals.some(v => String(v || '').toLowerCase().includes(q));
