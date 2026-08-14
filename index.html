@@ -516,6 +516,36 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .cp-alert-row b{font-weight:700;}
 .cp-alert-row.today{color:var(--red);}
 .cp-alert-row.today b{color:var(--red);}
+/* ── 믹스 재업로드 변경 미리보기 ── */
+.mix-diff-target{padding:12px 14px;background:var(--gray-100);border-radius:var(--r-md);margin-bottom:14px;font-size:14px;}
+.mix-sum{font-size:13px;color:var(--gray-600);margin-top:5px;}
+.mix-sum b{color:var(--gray-900);}
+.mix-gap{margin-left:6px;font-size:12px;font-weight:700;color:var(--gray-400);}
+.mix-gap.up{color:var(--red);}
+.mix-gap.down{color:var(--blue);}
+.mix-sect{margin-bottom:14px;}
+.mix-sect-head{font-size:12px;font-weight:700;margin-bottom:6px;display:flex;gap:6px;align-items:center;}
+.mix-sect-head.chg{color:var(--warn-text);}
+.mix-sect-head.add{color:var(--green);}
+.mix-sect-head.del{color:var(--red);}
+.mix-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 12px;border:1px solid var(--gray-200);border-radius:var(--r-sm);margin-bottom:5px;}
+.mix-name{font-size:13px;font-weight:700;color:var(--gray-900);flex-shrink:0;}
+.mix-detail{font-size:12px;color:var(--gray-600);}
+.mix-detail b{color:var(--gray-900);}
+.mix-none{padding:24px;text-align:center;color:var(--gray-500);font-size:13px;}
+.mix-same{font-size:12px;color:var(--gray-400);margin-bottom:10px;}
+.mix-opt{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--gray-700);background:var(--warn-bg);padding:10px 12px;border-radius:var(--r-sm);margin-bottom:10px;cursor:pointer;line-height:1.5;}
+.mix-keep{font-size:12px;color:var(--green);background:var(--success-bg);padding:9px 12px;border-radius:var(--r-sm);line-height:1.5;}
+
+/* ── 변경 이력 ── */
+.hist-list{display:flex;flex-direction:column;gap:12px;}
+.hist-item{border-left:2px solid var(--gray-200);padding-left:12px;}
+.hist-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px;}
+.hist-type{font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-light);padding:2px 8px;border-radius:20px;}
+.hist-time{font-size:11px;color:var(--gray-400);}
+.hist-lines{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px;}
+.hist-lines li{font-size:12.5px;color:var(--gray-700);line-height:1.6;}
+
 /* ── 정보 탭 (매체 담당자 / 계정) ── */
 .info-view{flex:1;display:flex;flex-direction:column;gap:14px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:18px 20px;min-height:420px;}
 .info-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -1125,6 +1155,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <div id="cpFilterArea" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="file" id="mmFileInput" accept=".xlsx,.xls,.xlsb" style="display:none" onchange="handleMediaMixFile(event)">
+          <input type="file" id="mixReuploadInput" accept=".xlsx,.xls,.xlsb" style="display:none" onchange="handleMixReuploadFile(event)">
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mmFileInput').click()" title="클릭해서 첨부하거나, 파일을 이 화면에 드래그해서 놓아도 돼요">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             미디어믹스 첨부
@@ -1252,6 +1283,35 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 <div class="toast-wrap" id="toastWrap"></div>
 
 <!-- ── Unified Add/Edit Modal ── -->
+<!-- ── 미디어믹스 재업로드 (변경분 미리보기) ── -->
+<div class="modal-overlay" id="mixReuploadModal" onclick="if(event.target===this)closeModal('mixReuploadModal')">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title">믹스 재업로드 — 변경 내용 확인</div>
+      <button class="modal-close" onclick="closeModal('mixReuploadModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="mixDiffTarget" class="mix-diff-target"></div>
+      <div id="mixDiffBody"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('mixReuploadModal')">취소</button>
+      <button class="btn btn-primary" onclick="applyMixReupload()">이대로 반영</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 캠페인 변경 이력 ── -->
+<div class="modal-overlay" id="historyModal" onclick="if(event.target===this)closeModal('historyModal')">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="historyModalTitle">변경 이력</div>
+      <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    </div>
+    <div class="modal-body" id="historyBody"></div>
+  </div>
+</div>
+
 <!-- ── 전체 검색 ── -->
 <div class="modal-overlay" id="searchModal" onclick="if(event.target===this)closeSearch()">
   <div class="modal search-modal">
@@ -4442,7 +4502,13 @@ function saveCampaignModal() {
   const totalBudget = parseCommaNumber(document.getElementById('cpTotalBudget').value);
   if(cpState.editCampId) {
     const camp = state.campaigns.find(c => c.id === cpState.editCampId);
-    if(camp) { camp.name = name; camp.totalBudget = totalBudget; }
+    if(camp) {
+      const chg = [];
+      if(camp.name !== name) chg.push(`캠페인명 ${camp.name} → ${name}`);
+      if((Number(camp.totalBudget) || 0) !== (Number(totalBudget) || 0)) chg.push(`계약 총예산 ${fmtWon(Number(camp.totalBudget) || 0)} → ${fmtWon(Number(totalBudget) || 0)}`);
+      if(chg.length) logCampaignChange(camp, '캠페인 수정', chg);
+      camp.name = name; camp.totalBudget = totalBudget;
+    }
   } else {
     state.campaigns.push({ id: uid(), name, liveStatus: null, note: '', totalBudget, mediaRows: [] });
   }
@@ -4487,6 +4553,14 @@ function saveMediaModal() {
   if(cpState.editMediaId) {
     const row = camp.mediaRows.find(m => m.id === cpState.editMediaId);
     if(row) {
+      // 무엇이 바뀌었는지 이력에 남긴다 (믹스 재업로드와 같은 자리에 쌓임)
+      const chg = [];
+      if(row.media !== mediaName) chg.push(`매체명 ${row.media} → ${mediaName}`);
+      if((Number(row.amount) || 0) !== amount) chg.push(`${mediaName} · 금액 ${fmtWon(Number(row.amount) || 0)} → ${fmtWon(amount)}`);
+      if((row.startDate || null) !== startDate) chg.push(`${mediaName} · 시작일 ${row.startDate || '-'} → ${startDate || '-'}`);
+      if((row.endDate || null) !== endDate) chg.push(`${mediaName} · 종료일 ${row.endDate || '-'} → ${endDate || '-'}`);
+      if(chg.length) logCampaignChange(camp, '매체 수정', chg);
+
       row.media = mediaName; row.startDate = startDate; row.endDate = endDate; row.amount = amount;
       // 금액을 직접 고쳤으면 현재 기준(금액/서비스율 포함)의 원본값도 같이 갱신한다.
       // 안 그러면 나중에 기준을 전환할 때 예전 금액으로 되돌아가서 수정이 사라진 것처럼 보임
@@ -4516,6 +4590,8 @@ function deleteMediaRow(campId, mediaId) {
   if(!confirm('이 매체를 삭제할까요?')) return;
   const camp = state.campaigns.find(c => c.id === campId);
   if(camp) {
+    const gone = camp.mediaRows.find(m => m.id === mediaId);
+    if(gone) logCampaignChange(camp, '매체 삭제', [`${gone.media} 삭제 (${fmtWon(Number(gone.amount) || 0)})`]);
     camp.mediaRows = camp.mediaRows.filter(m => m.id !== mediaId);
     syncCampaignLiveStatus(camp); // 남은 매체 기준으로 캠페인 상태 다시 판단
   }
@@ -4949,6 +5025,192 @@ function confirmMmImport() {
   showToast(`캠페인이 추가됐어요 (매체 ${mediaRows.length}개)`);
 }
 
+// ── 캠페인 변경 이력 ─────────────────────────────────────────────
+// 금액/기간이 자주 바뀌는데 언제 무엇이 바뀌었는지 남지 않아서, 변경 지점마다 기록을 쌓는다
+function logCampaignChange(camp, type, lines) {
+  if(!camp || !lines || !lines.length) return;
+  if(!Array.isArray(camp.history)) camp.history = [];
+  camp.history.unshift({
+    ts: Date.now(),
+    by: (typeof myNickname === 'function' ? myNickname() : '') || '',
+    type, lines
+  });
+  if(camp.history.length > 100) camp.history.length = 100; // 너무 쌓이지 않게
+}
+
+function openCampaignHistory(campId) {
+  const camp = state.campaigns.find(c => c.id === campId);
+  if(!camp) return;
+  document.getElementById('historyModalTitle').textContent = `${camp.name} · 변경 이력`;
+  const hist = camp.history || [];
+  document.getElementById('historyBody').innerHTML = hist.length
+    ? `<div class="hist-list">${hist.map(h => `
+        <div class="hist-item">
+          <div class="hist-head">
+            <span class="hist-type">${escHtml(h.type)}</span>
+            <span class="hist-time">${new Date(h.ts).toLocaleString('ko-KR')}${h.by ? ' · ' + escHtml(h.by) : ''}</span>
+          </div>
+          <ul class="hist-lines">${h.lines.map(l => `<li>${escHtml(l)}</li>`).join('')}</ul>
+        </div>`).join('')}</div>`
+    : `<div style="padding:40px 20px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.8">
+         아직 기록된 변경이 없어요.<br>지금부터 금액·기간·매체 구성이 바뀌면 여기에 쌓여요.</div>`;
+  openModal('historyModal');
+}
+
+// ── 미디어믹스 재업로드 ───────────────────────────────────────────
+let mixReupload = { campId: null, parsed: null, diff: null };
+
+function startMixReupload(campId) {
+  mixReupload.campId = campId;
+  document.getElementById('mixReuploadInput').click();
+}
+
+async function handleMixReuploadFile(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  evt.target.value = '';
+  if(!file) return;
+  const camp = state.campaigns.find(c => c.id === mixReupload.campId);
+  if(!camp) return;
+  if(!/\.(xlsx|xls|xlsb)$/i.test(file.name || '')) { showToast('엑셀 파일(.xlsx, .xls, .xlsb)만 첨부할 수 있어요'); return; }
+  if(typeof XLSX === 'undefined') { showToast('엑셀 파싱 라이브러리를 불러오지 못했어요'); return; }
+  try {
+    const buf = await file.arrayBuffer();
+    const parsed = parseMediaMixWorkbook(XLSX.read(buf, { type: 'array', cellDates: false }));
+    if(!parsed) { showToast('미디어믹스 양식을 인식하지 못했어요'); return; }
+    if(!parsed.rows.length) { showToast('매체를 인식하지 못했어요. 파일을 확인해주세요'); return; }
+    mixReupload.parsed = parsed;
+    mixReupload.diff = buildMixDiff(camp, parsed.rows);
+    renderMixDiff(camp);
+    openModal('mixReuploadModal');
+  } catch(e) {
+    console.error(e);
+    showToast('파일을 읽는 중 오류가 발생했어요');
+  }
+}
+
+// 기존 매체와 새 믹스를 매체명 기준으로 맞춰보고 추가/변경/삭제로 분류한다
+function buildMixDiff(camp, parsedRows) {
+  const norm = s => String(s || '').trim();
+  const oldRows = camp.mediaRows || [];
+  const usedOld = new Set();
+  const diff = { added: [], changed: [], removed: [], same: 0 };
+
+  parsedRows.filter(r => norm(r.name)).forEach(nr => {
+    const name = norm(nr.name);
+    const match = oldRows.find(o => norm(o.media) === name && !usedOld.has(o.id));
+    if(!match) { diff.added.push({ name, row: nr }); return; }
+    usedOld.add(match.id);
+    const lines = [];
+    const newAmt = Number(nr.amount) || 0, oldAmt = Number(match.amount) || 0;
+    if(newAmt !== oldAmt) lines.push({ f: '금액', from: fmtWon(oldAmt), to: fmtWon(newAmt) });
+    if((nr.startDate || null) !== (match.startDate || null)) lines.push({ f: '시작일', from: match.startDate || '-', to: nr.startDate || '-' });
+    if((nr.endDate || null) !== (match.endDate || null)) lines.push({ f: '종료일', from: match.endDate || '-', to: nr.endDate || '-' });
+    if(lines.length) diff.changed.push({ name, target: match, row: nr, lines });
+    else diff.same++;
+  });
+  oldRows.forEach(o => { if(!usedOld.has(o.id)) diff.removed.push({ name: norm(o.media), target: o }); });
+  return diff;
+}
+
+function renderMixDiff(camp) {
+  const d = mixReupload.diff;
+  const oldSum = (camp.mediaRows || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+  const newSum = mixReupload.parsed.rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const gap = newSum - oldSum;
+
+  document.getElementById('mixDiffTarget').innerHTML = `
+    <b>${escHtml(camp.name)}</b>
+    <div class="mix-sum">총예산 ${fmtWon(oldSum)} → <b>${fmtWon(newSum)}</b>
+      ${gap !== 0 ? `<span class="mix-gap ${gap > 0 ? 'up' : 'down'}">${gap > 0 ? '+' : ''}${fmtWon(gap)}</span>` : '<span class="mix-gap">변동 없음</span>'}</div>`;
+
+  const sect = (title, cls, items) => items.length ? `
+    <div class="mix-sect">
+      <div class="mix-sect-head ${cls}">${title} <b>${items.length}</b></div>
+      ${items.join('')}
+    </div>` : '';
+
+  const html = [
+    sect('변경', 'chg', d.changed.map(c => `
+      <div class="mix-row">
+        <span class="mix-name">${escHtml(c.name)}</span>
+        <span class="mix-detail">${c.lines.map(l => `${l.f} ${escHtml(String(l.from))} → <b>${escHtml(String(l.to))}</b>`).join(' · ')}</span>
+      </div>`)),
+    sect('추가', 'add', d.added.map(a => `
+      <div class="mix-row">
+        <span class="mix-name">${escHtml(a.name)}</span>
+        <span class="mix-detail">${fmtWon(Number(a.row.amount) || 0)}${a.row.startDate ? ` · ${a.row.startDate} ~ ${a.row.endDate || '?'}` : ''}</span>
+      </div>`)),
+    sect('믹스에 없음', 'del', d.removed.map(r => `
+      <div class="mix-row">
+        <span class="mix-name">${escHtml(r.name)}</span>
+        <span class="mix-detail">${fmtWon(Number(r.target.amount) || 0)}</span>
+      </div>`))
+  ].join('');
+
+  document.getElementById('mixDiffBody').innerHTML = `
+    ${html || '<div class="mix-none">바뀐 내용이 없어요. 파일 내용이 지금 등록된 매체 구성과 같아요.</div>'}
+    ${d.same ? `<div class="mix-same">그대로인 매체 ${d.same}개</div>` : ''}
+    ${d.removed.length ? `
+      <label class="mix-opt">
+        <input type="checkbox" id="mixDeleteMissing" checked>
+        믹스에 없는 매체 ${d.removed.length}개를 삭제할게요 (체크를 풀면 그대로 둬요)
+      </label>` : ''}
+    <div class="mix-keep">✓ 이미 체크해둔 세팅·라이브·게재보고 진행 상태와 실집행액은 그대로 유지돼요</div>`;
+}
+
+function applyMixReupload() {
+  const camp = state.campaigns.find(c => c.id === mixReupload.campId);
+  const d = mixReupload.diff;
+  if(!camp || !d) return;
+  const deleteMissing = !document.getElementById('mixDeleteMissing') || document.getElementById('mixDeleteMissing').checked;
+  const lines = [];
+
+  // 변경: 진행 상태와 실집행액은 건드리지 않고 금액/기간만 갱신
+  d.changed.forEach(c => {
+    const t = c.target, r = c.row;
+    t.amount = Number(r.amount) || 0;
+    t.amountLeft = r.amountLeft != null ? r.amountLeft : t.amount;
+    t.amountRight = r.amountRight != null ? r.amountRight : null;
+    t.amountBasis = r.amountBasis || t.amountBasis || 'left';
+    t.startDate = r.startDate || null;
+    t.endDate = r.endDate || null;
+    if(r.adGroups && r.adGroups.length) {
+      t.adGroups = r.adGroups.map(g => ({ id: uid(), name: g.name, weight: g.weight, amountLeft: g.amountLeft != null ? g.amountLeft : null, amountRight: g.amountRight != null ? g.amountRight : null }));
+    }
+    c.lines.forEach(l => lines.push(`${c.name} · ${l.f} ${l.from} → ${l.to}`));
+  });
+
+  d.added.forEach(a => {
+    const r = a.row;
+    camp.mediaRows.push({
+      id: uid(), media: a.name, startDate: r.startDate || null, endDate: r.endDate || null,
+      amount: Number(r.amount) || 0,
+      amountLeft: r.amountLeft != null ? r.amountLeft : (Number(r.amount) || 0),
+      amountRight: r.amountRight != null ? r.amountRight : null,
+      amountBasis: r.amountBasis || 'left',
+      budgetMode: 'exclude_vat', markupRate: 20, spent: 0,
+      adGroups: (r.adGroups || []).map(g => ({ id: uid(), name: g.name, weight: g.weight, amountLeft: g.amountLeft != null ? g.amountLeft : null, amountRight: g.amountRight != null ? g.amountRight : null })),
+      setup: 0, live: 0, liveEnd: 0, report: 0
+    });
+    lines.push(`${a.name} 추가 (${fmtWon(Number(r.amount) || 0)})`);
+  });
+
+  if(deleteMissing && d.removed.length) {
+    const ids = new Set(d.removed.map(r => r.target.id));
+    camp.mediaRows = camp.mediaRows.filter(m => !ids.has(m.id));
+    d.removed.forEach(r => lines.push(`${r.name} 삭제 (믹스에서 빠짐)`));
+  }
+
+  if(!lines.length) { showToast('반영할 변경 내용이 없어요'); closeModal('mixReuploadModal'); return; }
+
+  logCampaignChange(camp, '믹스 재업로드', lines);
+  syncCampaignLiveStatus(camp);
+  save();
+  closeModal('mixReuploadModal');
+  renderCampaignView();
+  showToast(`믹스를 반영했어요 · 변경 ${lines.length}건`);
+}
+
 function statusVal(v) {
   if(v === true || v === 1) return 1;
   if(v === 2) return 2;
@@ -5295,6 +5557,8 @@ function renderCampaignView() {
       <td class="ct-status-cell">${smini(reportDone, n)}</td>
       <td><div class="ct-group-acts">
         <button class="ct-add-media-btn" onclick="openAddMediaModal('${camp.id}',null)">+ 매체 추가</button>
+        <button class="ct-add-media-btn" onclick="startMixReupload('${camp.id}')" title="수정된 미디어믹스 파일을 올려 금액·기간을 한 번에 갱신">↻ 믹스</button>
+        <button class="ct-icon-btn" onclick="openCampaignHistory('${camp.id}')" title="변경 이력">🕘</button>
         <button class="ct-icon-btn" onclick="openAddCampaignModal('${camp.id}')" title="수정">✎</button>
         <button class="ct-icon-btn del" onclick="deleteCampaign('${camp.id}')" title="삭제">✕</button>
       </div></td>`;
