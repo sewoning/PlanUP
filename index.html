@@ -2070,14 +2070,18 @@ function teamForceEdit() {
   enterTeamWorkspace(true);
 }
 
-// 캠페인 현황 / 일예산 계산기는 개인 데이터에서만 쓰는 탭이라 팀 공유 시트에선 숨긴다
-const TEAM_HIDDEN_TABS = ['campaign', 'budgetCalc'];
+// 캠페인 현황 / 일예산 계산기는 개인 데이터 전용, 정보(담당자·계정)는 팀 공유 전용이라 서로 반대로 숨긴다
+const TEAM_HIDDEN_TABS = ['campaign', 'budgetCalc']; // 팀 공유 시트에서 숨김
+const TEAM_ONLY_TABS = ['info'];                     // 팀 공유 시트에서만 보임
 function applyWorkspaceTabs() {
-  const hide = workspace === 'team';
-  TEAM_HIDDEN_TABS.forEach(t => {
-    document.querySelectorAll(`[data-tab="${t}"]`).forEach(el => { el.style.display = hide ? 'none' : ''; });
+  const isTeam = workspace === 'team';
+  const setShown = (tabs, shown) => tabs.forEach(t => {
+    document.querySelectorAll(`[data-tab="${t}"]`).forEach(el => { el.style.display = shown ? '' : 'none'; });
   });
-  if(hide && TEAM_HIDDEN_TABS.includes(state.currentTab)) switchTab('home');
+  setShown(TEAM_HIDDEN_TABS, !isTeam);
+  setShown(TEAM_ONLY_TABS, isTeam);
+  const hidden = isTeam ? TEAM_HIDDEN_TABS : TEAM_ONLY_TABS;
+  if(hidden.includes(state.currentTab)) switchTab('home');
 }
 
 function renderWorkspaceUI(lockFree) {
@@ -2181,12 +2185,9 @@ function renderInfoView() {
   document.getElementById('infoAccountCount').textContent = (state.accounts || []).length;
 
   const notice = document.getElementById('infoNotice');
-  const teamHint = workspace === 'team'
-    ? '팀 공유 시트라 팀원 모두가 함께 봐요.'
-    : '지금은 <b>내 데이터</b>예요. 팀원과 같이 쓰려면 헤더의 "팀 공유"로 전환한 뒤 입력해주세요.';
   notice.innerHTML = infoTab === 'account'
-    ? `<div class="info-notice warn">🔐 비밀번호는 <b>암호화되지 않은 상태로 저장</b>돼요. 로그인한 사람은 볼 수 있으니 중요한 계정 비밀번호는 넣지 마세요. ${teamHint}</div>`
-    : `<div class="info-notice">${teamHint}</div>`;
+    ? `<div class="info-notice warn">🔐 비밀번호는 <b>암호화되지 않은 상태로 저장</b>돼요. 공유 시트를 여는 팀원은 모두 볼 수 있으니 중요한 개인 계정 비밀번호는 넣지 마세요.</div>`
+    : `<div class="info-notice">팀 공유 시트라 팀원 모두가 함께 보고 수정해요.</div>`;
 
   const rows = state[sheet.key] || [];
   document.getElementById('infoThead').innerHTML =
@@ -2284,6 +2285,8 @@ function runSearch() {
     }
   });
 
+  // 담당자·계정은 팀 공유 시트 전용이라, 개인 데이터를 보고 있을 땐 검색 결과에 넣지 않는다
+  if(workspace === 'team') {
   (state.contacts || []).forEach(ct => {
     if(has(ct.media, ct.name, ct.team, ct.phone, ct.email, ct.note)) hits.push({ type: '담당자', cls: 'ct', id: ct.id,
       title: `${ct.name || '이름 없음'} · ${ct.media || '매체 미지정'}`,
@@ -2297,6 +2300,7 @@ function runSearch() {
       sub: ac.loginId ? 'ID ' + ac.loginId : '',
       snippet: ac.note || '', go: () => gotoInfoRow('account', ac.id) });
   });
+  }
 
   searchHits = hits.slice(0, 40);
   if(!searchHits.length) {
@@ -2381,6 +2385,7 @@ function gotoCampaign(cp) {
 }
 
 function gotoInfoRow(kind, id) {
+  if(workspace !== 'team') { showToast('담당자·계정 정보는 팀 공유 시트에서 볼 수 있어요'); return; }
   switchTab('info');
   infoTab = kind === 'account' ? 'account' : 'contact';
   renderInfoView();
