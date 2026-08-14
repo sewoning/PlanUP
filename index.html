@@ -204,6 +204,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .cal-quick-task-list { flex:1; overflow-y:auto; padding:0 12px 12px; display:flex; flex-direction:column; gap:8px; }
 .kanban-card-compact { padding:8px 10px; }
 .kanban-card-compact .kanban-card-note { display:none; }
+.kanban-card-compact .kanban-card-times { display:none; }
 .detail-header { padding:16px 20px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between; }
 .detail-title { font-size:15px; font-weight:700; color:var(--gray-800); }
 .detail-empty { padding:32px 20px; text-align:center; color:var(--gray-400); font-size:13px; }
@@ -273,6 +274,11 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .kc-drag-hint { position:absolute; top:8px; right:10px; color:var(--gray-300); font-size:11px; opacity:0; transition:opacity .12s; user-select:none; pointer-events:none; line-height:1; letter-spacing:1px; cursor:grab; }
 .kanban-card:hover .kc-drag-hint { opacity:1; }
 .kanban-card-row { display:flex; align-items:center; gap:8px; }
+.kanban-card-times { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:5px; font-size:11px; color:var(--gray-400); font-weight:500; }
+.ktm-item { white-space:nowrap; }
+.ktm-done { color:var(--gray-500); }
+.ktm-age { font-weight:700; color:var(--gray-500); }
+.ktm-age.ktm-old { color:var(--warn-text); background:var(--warn-bg); border-radius:20px; padding:1px 7px; }
 .kanban-card-title { flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--gray-900); line-height:1.4; overflow-wrap:break-word; }
 .kanban-card.done .kanban-card-title { text-decoration:line-through; color:var(--gray-400); }
 .kanban-card-title-input { flex:1; min-width:0; display:block; width:100%; font-size:14px; font-weight:600; color:var(--gray-900); line-height:1.4; font-family:inherit; border:none; outline:none; background:transparent; resize:none; overflow:hidden; padding:0; cursor:text; }
@@ -1696,17 +1702,35 @@ function collectLocalData() {
   return data;
 }
 
+// 마지막으로 이 탭이 읽거나 쓴 원격 데이터의 시각. 다른 기기가 더 최근에 저장했는지 판단하는 기준이 된다
+let lastKnownRemoteAt = null;
+
 async function pushRemoteData() {
   if(!authUser) return;
+  // 저장 구조상 데이터 전체를 통째로 올리기 때문에, 오래 열어둔 탭이 저장하면
+  // 다른 기기에서 한 최신 작업(예: 휴대폰에서 누른 업무 완료)을 통째로 되돌려버릴 수 있다.
+  // 원격이 더 최근이면 덮어쓰지 않고 새로고침을 안내한다.
+  try {
+    const { data: remote } = await sb.from('user_data').select('updated_at').eq('id', authUser.id).maybeSingle();
+    if(remote && remote.updated_at && lastKnownRemoteAt && remote.updated_at > lastKnownRemoteAt) {
+      showToast('다른 기기에서 더 최근에 저장한 내용이 있어요. 새로고침한 뒤 다시 수정해주세요');
+      return;
+    }
+  } catch(e) {}
   const data = collectLocalData();
-  try { await sb.from('user_data').upsert({ id: authUser.id, data, updated_at: new Date().toISOString() }); } catch(e) {}
+  const now = new Date().toISOString();
+  try {
+    await sb.from('user_data').upsert({ id: authUser.id, data, updated_at: now });
+    lastKnownRemoteAt = now;
+  } catch(e) {}
 }
 
 async function pullRemoteData() {
   if(!authUser) return;
   try {
-    const { data, error } = await sb.from('user_data').select('data').eq('id', authUser.id).maybeSingle();
+    const { data, error } = await sb.from('user_data').select('data, updated_at').eq('id', authUser.id).maybeSingle();
     if(error || !data || !data.data) return;
+    lastKnownRemoteAt = data.updated_at || null;
     SYNC_KEYS.forEach(k => { if(data.data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data.data[k])); });
   } catch(e) {}
 }
@@ -2471,6 +2495,27 @@ function renderSheet() {
 
 // 업무 카드 생성 (업무 탭 칸반 / 캘린더 옆 간편 업무 패널 공용).
 // opts.compact === true 면 메모(비고) 입력칸을 숨기고 여백을 줄인다.
+// 업무 카드에 보여줄 등록/완료 시각. 할 일은 "며칠째 남아있는지"를 같이 보여줘서 우선순위 판단에 쓰이게 한다
+function taskTimeMetaHtml(tk) {
+  const fmt = ts => {
+    const d = new Date(ts);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+  const daysSince = ts => Math.floor((Date.now() - ts) / 86400000);
+  const parts = [];
+  if(tk.createdAt) parts.push(`<span class="ktm-item" title="업무를 등록한 시각">등록 ${fmt(tk.createdAt)}</span>`);
+  if(tk.status === 'done') {
+    if(tk.completedAt) {
+      const took = tk.createdAt ? daysSince(tk.createdAt) - daysSince(tk.completedAt) : null;
+      parts.push(`<span class="ktm-item ktm-done" title="완료를 누른 시각">완료 ${fmt(tk.completedAt)}${took !== null && took > 0 ? ` · ${took}일 걸림` : ''}</span>`);
+    }
+  } else if(tk.createdAt) {
+    const d = daysSince(tk.createdAt);
+    if(d >= 1) parts.push(`<span class="ktm-item ktm-age${d >= 7 ? ' ktm-old' : ''}" title="등록한 지 지난 기간">${d}일째</span>`);
+  }
+  return parts.length ? `<div class="kanban-card-times">${parts.join('')}</div>` : '';
+}
+
 function createTaskCard(tk, opts) {
   opts = opts || {};
   const compact = !!opts.compact;
@@ -2497,6 +2542,7 @@ function createTaskCard(tk, opts) {
         <button class="kca del" onclick="event.stopPropagation();confirmDeleteTask('${tk.id}')">✕</button>
       </div>
     </div>
+    ${taskTimeMetaHtml(tk)}
     ${noteHtml}`;
   initCardDrag(card, tk.id);
   const titleTa = card.querySelector('.kanban-card-title-input');
@@ -2516,10 +2562,18 @@ function refreshTaskViews() {
   renderCalQuickTasks();
 }
 
+// 업무 상태 변경은 항상 여기를 거친다. 완료 시각 기록/해제를 한 곳에서 처리해서 상태와 시각이 어긋나지 않게 함
+function setTaskStatus(task, status) {
+  if(!task || task.status === status) return;
+  task.status = status;
+  if(status === 'done') task.completedAt = Date.now();
+  else delete task.completedAt;
+}
+
 function completeTask(taskId) {
   const tk = state.tasks.find(t => t.id === taskId);
   if(!tk) return;
-  tk.status = 'done';
+  setTaskStatus(tk, 'done');
   save();
   refreshTaskViews();
 }
@@ -2722,14 +2776,24 @@ function initColDrop(colEl, targetStatus) {
       if(e.clientY < r.top + r.height / 2) { insertBeforeId = c.dataset.taskId; break; }
     }
 
-    // 배열에서 드래그한 항목을 먼저 꺼낸 뒤 원하는 위치에 삽입 (덮어씌우기 없음)
     const fromIdx = state.tasks.findIndex(t => t.id === draggedId);
     if(fromIdx === -1) return;
+
+    // 완료한 업무를 실수로 할 일로 되돌리는 일이 잦아서, 되돌릴 때만 한 번 확인받는다
+    const dragged = state.tasks[fromIdx];
+    if(targetStatus === 'todo' && dragged.status === 'done') {
+      if(!confirm(`"${dragged.title}"을(를) 다시 할 일로 되돌릴까요?\n\n완료 기록이 지워져요.`)) {
+        refreshTaskViews();
+        return;
+      }
+    }
+
+    // 배열에서 드래그한 항목을 먼저 꺼낸 뒤 원하는 위치에 삽입 (덮어씌우기 없음)
     const [task] = state.tasks.splice(fromIdx, 1);
 
     // 컬럼 간 이동 시 상태 변경
-    if(targetStatus === 'done') task.status = 'done';
-    else if(targetStatus === 'todo' && task.status === 'done') task.status = 'todo';
+    if(targetStatus === 'done') setTaskStatus(task, 'done');
+    else if(targetStatus === 'todo' && task.status === 'done') setTaskStatus(task, 'todo');
 
     if(insertBeforeId) {
       const toIdx = state.tasks.findIndex(t => t.id === insertBeforeId);
