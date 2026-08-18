@@ -595,11 +595,16 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .info-eye:hover{background:var(--gray-100);}
 .info-empty{padding:60px 20px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.8;}
 
-/* ── 실 시트 (구글시트 실시간 연동) ── */
-.sil-view{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;height:calc(100vh - 150px);}
-.sil-notice{flex-shrink:0;font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
-.sil-iframe{flex:1;min-height:0;width:100%;border:1px solid var(--gray-200);border-radius:var(--r-lg);background:#fff;box-shadow:var(--shadow-sm);}
-@media(max-width:700px){ .sil-view{height:calc(100vh - 190px);} }
+/* ── 실 시트 (구글시트 바로가기) ── */
+.sil-view{flex:1;display:flex;align-items:center;justify-content:center;min-height:60vh;}
+.sil-card{max-width:440px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:44px 36px;}
+.sil-card-icon{color:var(--blue);}
+.sil-card-title{font-size:18px;font-weight:800;color:var(--gray-900);}
+.sil-card-desc{font-size:13px;color:var(--gray-500);line-height:1.7;}
+.sil-card-desc b{color:var(--gray-700);}
+.sil-card .btn-primary{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 22px;font-size:14px;margin-top:4px;}
+.sil-card-hint{font-size:11.5px;color:var(--gray-400);line-height:1.6;margin-top:2px;}
+.sil-card-hint b{color:var(--gray-500);}
 
 /* ── 전체 검색 ── */
 .search-modal{max-width:640px;width:100%;padding:0;overflow:hidden;}
@@ -1323,11 +1328,21 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </div>
   </div>
 
-  <!-- ═══ 실 시트 (구글시트 대체 — 여러 개의 자유 형식 표) ═══ -->
+  <!-- ═══ 실 시트 (구글시트 바로가기) ═══ -->
   <div class="view" id="viewSil">
     <div class="sil-view">
-      <div class="sil-notice">🔗 <b>구글시트가 그대로 연결돼 있어요.</b> 여기서 고치면 실제 구글시트도 바로 바뀌고, 반대도 마찬가지예요. 보이지 않거나 편집이 안 되면 이 구글시트에 <b>본인 구글 계정으로 접근 권한</b>이 있는지 확인해주세요.</div>
-      <iframe id="silFrame" class="sil-iframe" src="" title="실 시트" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-read; clipboard-write"></iframe>
+      <div class="sil-card">
+        <div class="sil-card-icon">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+        </div>
+        <div class="sil-card-title">실 시트</div>
+        <div class="sil-card-desc">구글이 편집 화면을 다른 사이트 안에 끼워넣는 걸 막아둬서, 여기 화면 안에 바로 띄우진 못해요.<br>대신 아래 버튼으로 열면 <b>완전히 같은 문서</b>가 새 탭에서 열려요 — 여기서 고치는 게 아니라 그 문서를 직접 고치는 거라 항상 최신 상태예요.</div>
+        <button class="btn btn-primary" onclick="openSilSheet()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          새 탭에서 구글시트 열기
+        </button>
+        <div class="sil-card-hint">열리지 않거나 편집이 안 되면, 이 문서에 <b>본인 구글 계정으로 접근 권한</b>이 있는지 확인해주세요.</div>
+      </div>
     </div>
   </div>
 
@@ -2289,11 +2304,13 @@ window.addEventListener('beforeunload', () => {
   if(workspace === 'team' && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
 });
 
-// ── 실 시트 (구글시트 실시간 연동) ────────────────────────────────
-// 자체 표를 새로 만드는 대신 구글시트를 iframe으로 그대로 띄운다 — 서식·수식이 100% 유지되고,
-// 여기서 고치면 실제 문서도 그대로 바뀐다. 구글시트 자체가 이미 여러 명 동시 편집을 지원해서,
-// 팀/실 잠금 방식(엑셀식 단일 편집자)이 필요 없다 — 접근 권한은 구글시트 공유 설정을 그대로 따라간다.
-const SIL_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1z_YH_c1-_GpptPOpP2miZ-pJkRwROpy7gUtyA0cr_qU/edit?usp=sharing&rm=minimal';
+// ── 실 시트 (구글시트 바로가기) ────────────────────────────────────
+// 원래는 iframe으로 화면 안에 그대로 띄우려 했는데, 구글이 편집 화면의 타 사이트 임베드를 막아둬서
+// (add-on 문제로 인한 정책 변경) 빈 화면만 떴다. 그래서 "새 탭에서 열기"로 바꿨다 — 완전히 같은 문서를
+// 직접 여는 거라 서식·수식이 100% 유지되고 양방향으로 항상 동기화된다.
+// 구글시트 자체가 이미 여러 명 동시 편집을 지원해서, 팀/실 잠금 방식(엑셀식 단일 편집자)이 필요 없다 —
+// 접근 권한은 구글시트 공유 설정을 그대로 따라간다.
+const SIL_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1z_YH_c1-_GpptPOpP2miZ-pJkRwROpy7gUtyA0cr_qU/edit?usp=sharing';
 
 function enterSilWorkspace() {
   workspace = 'sil';
@@ -2303,9 +2320,10 @@ function enterSilWorkspace() {
   switchTab('sil');
 }
 
-function renderSilView() {
-  const frame = document.getElementById('silFrame');
-  if(frame && !frame.src) frame.src = SIL_SHEET_URL; // 이미 로드돼 있으면 다시 안 바꿈 (편집 중이던 내용이 새로고침되지 않게)
+function renderSilView() {} // 정적 화면이라 매번 다시 그릴 게 없음 (switchTab 훅과의 일관성을 위해 남겨둠)
+
+function openSilSheet() {
+  window.open(SIL_SHEET_URL, '_blank', 'noopener');
 }
 
 // ── 정보 탭 (매체 컨택포인트 / 계정) ────────────────────────────────
