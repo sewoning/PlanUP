@@ -108,7 +108,7 @@ create or replace function verify_team_password(p_team_id text, p_password text)
 returns boolean
 language sql
 security definer
-set search_path = public
+set search_path = public, extensions  -- pgcrypto(crypt)가 public이 아니라 extensions 스키마에 설치돼서 필요
 as $$
   select password_hash = crypt(p_password, password_hash)
   from team_settings where id = p_team_id;
