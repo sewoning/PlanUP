@@ -595,23 +595,11 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .info-eye:hover{background:var(--gray-100);}
 .info-empty{padding:60px 20px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.8;}
 
-/* ── 실 시트 (구글시트 대체) ── */
-.sil-view{flex:1;display:flex;flex-direction:column;gap:12px;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:18px 20px;min-height:420px;}
-.sil-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-.sil-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.sil-toolbar .btn{flex-shrink:0;}
-.sil-toolbar-name{font-size:13px;font-weight:700;color:var(--gray-800);margin-right:auto;}
-.sil-grid-wrap{overflow:auto;border:1px solid var(--gray-200);border-radius:var(--r-md);max-height:70vh;}
-table.sil-grid{border-collapse:collapse;font-size:12.5px;}
-table.sil-grid th,table.sil-grid td{border:1px solid var(--gray-200);padding:0;white-space:nowrap;}
-table.sil-grid th{background:var(--gray-100);color:var(--gray-500);font-weight:600;font-size:11px;padding:5px 8px;position:sticky;top:0;z-index:2;}
-table.sil-grid th.sil-rownum{left:0;z-index:3;min-width:38px;text-align:center;}
-table.sil-grid td.sil-rownum{background:var(--gray-50);color:var(--gray-400);font-size:11px;text-align:center;padding:5px 6px;position:sticky;left:0;user-select:none;}
-table.sil-grid td.sil-cell{min-width:90px;max-width:320px;}
-table.sil-grid td.sil-cell[contenteditable="true"]{padding:5px 8px;color:var(--gray-800);outline:none;cursor:text;white-space:pre-wrap;overflow-wrap:break-word;}
-table.sil-grid td.sil-cell[contenteditable="true"]:focus{background:var(--blue-light);box-shadow:inset 0 0 0 1.5px var(--blue);}
-table.sil-grid td.sil-cell[contenteditable="true"]:hover{background:var(--gray-50);}
-.sil-empty{padding:60px 20px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.8;}
+/* ── 실 시트 (구글시트 실시간 연동) ── */
+.sil-view{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0;height:calc(100vh - 150px);}
+.sil-notice{flex-shrink:0;font-size:12px;color:var(--gray-600);background:var(--gray-100);border-radius:var(--r-sm);padding:9px 13px;line-height:1.6;}
+.sil-iframe{flex:1;min-height:0;width:100%;border:1px solid var(--gray-200);border-radius:var(--r-lg);background:#fff;box-shadow:var(--shadow-sm);}
+@media(max-width:700px){ .sil-view{height:calc(100vh - 190px);} }
 
 /* ── 전체 검색 ── */
 .search-modal{max-width:640px;width:100%;padding:0;overflow:hidden;}
@@ -1338,20 +1326,8 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <!-- ═══ 실 시트 (구글시트 대체 — 여러 개의 자유 형식 표) ═══ -->
   <div class="view" id="viewSil">
     <div class="sil-view">
-      <div class="sil-head">
-        <div class="sheet-tab-row sil-sheet-tabs" id="silSheetTabs" style="width:auto;flex-wrap:wrap"></div>
-        <div class="info-head-right">
-          <button class="btn btn-ghost btn-sm" onclick="addSilSheet()" title="새 표 추가">+ 표 추가</button>
-          <input type="file" id="silImportInput" accept=".json" style="display:none" onchange="handleSilImport(event)">
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('silImportInput').click()" title="JSON 파일로 표 내용 가져오기 (이름이 같은 표만 덮어써요)">가져오기</button>
-        </div>
-      </div>
-      <div id="silNotice"></div>
-      <div class="sil-toolbar" id="silToolbar"></div>
-      <div class="sil-grid-wrap">
-        <table class="sil-grid" id="silGridTable"></table>
-      </div>
-      <div class="sil-empty" id="silEmpty" style="display:none">아직 표가 없어요.<br>"+ 표 추가"를 눌러 시작하세요.</div>
+      <div class="sil-notice">🔗 <b>구글시트가 그대로 연결돼 있어요.</b> 여기서 고치면 실제 구글시트도 바로 바뀌고, 반대도 마찬가지예요. 보이지 않거나 편집이 안 되면 이 구글시트에 <b>본인 구글 계정으로 접근 권한</b>이 있는지 확인해주세요.</div>
+      <iframe id="silFrame" class="sil-iframe" src="" title="실 시트" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-read; clipboard-write"></iframe>
     </div>
   </div>
 
@@ -1862,10 +1838,11 @@ function placeMultiDayBars(events, weekYmds) {
 // ── Persistence ────────────────────────────────────────────────
 function backupData() {
   const keys = ['cal_events','cal_tasks','cal_memos','cal_memo_folders','cal_campaigns','cal_contacts','cal_accounts'];
-  const isShared = workspace === 'team' || workspace === 'sil';
-  // 공유 시트를 보고 있으면 지금 화면의 공유 데이터를 백업 (localStorage엔 개인 데이터만 있으므로)
-  const data = isShared ? currentSharedPayload() : {};
-  if(!isShared) keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
+  const isTeam = workspace === 'team';
+  // 팀 공유 시트를 보고 있으면 지금 화면의 공유 데이터를 백업 (localStorage엔 개인 데이터만 있으므로)
+  // 실 시트는 구글시트 자체가 원본이라 여기서 백업할 게 없음
+  const data = isTeam ? stateToData() : {};
+  if(!isTeam) keys.forEach(k => { const v = localStorage.getItem(k); if(v) data[k] = JSON.parse(v); });
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1880,7 +1857,7 @@ function handleRestoreFile(evt) {
   const file = evt.target.files && evt.target.files[0];
   evt.target.value = '';
   if(!file) return;
-  if(workspace === 'team' || workspace === 'sil') { showToast('복원은 내 데이터에서만 할 수 있어요 (공유 시트는 덮어쓰지 않아요)'); return; }
+  if(workspace === 'team') { showToast('복원은 내 데이터에서만 할 수 있어요 (팀 공유 시트는 덮어쓰지 않아요)'); return; }
   const reader = new FileReader();
   reader.onload = async () => {
     let data;
@@ -1899,8 +1876,9 @@ function handleRestoreFile(evt) {
 }
 
 function save() {
-  // 공유 시트를 보고 있을 땐 개인 localStorage를 건드리지 않는다 (내 데이터와 완전히 분리)
-  if(workspace === 'team' || workspace === 'sil') {
+  // 팀 공유 시트를 보고 있을 땐 개인 localStorage를 건드리지 않는다 (내 데이터와 완전히 분리).
+  // 실 시트는 이 함수 경로를 아예 안 탄다 (구글시트가 원본이라 우리 쪽 저장이 없음)
+  if(workspace === 'team') {
     if(!teamCanEdit) { showToast('읽기 전용 모드예요 · 다른 사람이 수정 중이라 저장되지 않아요'); return; }
     teamSyncRemote();
     return;
@@ -2060,7 +2038,7 @@ async function initAuth() {
 }
 
 function logout() {
-  if((workspace === 'team' || workspace === 'sil') && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
+  if(workspace === 'team' && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
   sb.auth.signOut();
   authUser = null;
   location.reload();
@@ -2109,27 +2087,13 @@ function stateToData() {
   };
 }
 
-// team/sil은 같은 shared_data 테이블에 담기지만 안에 들어가는 모양이 완전히 다르다.
-// 여기서 한 번만 분기해두면 push/poll 쪽은 워크스페이스를 몰라도 된다.
-function currentSharedPayload() {
-  return workspace === 'sil' ? { sheets: silSheets } : stateToData();
-}
-function applySharedPayload(data) {
-  if(workspace === 'sil') {
-    silSheets = (data && data.sheets) || {};
-    silSheetOrder = Object.keys(silSheets);
-    silActiveSheet = silSheetOrder[0] || null;
-  } else {
-    stateFromData(data);
-  }
-}
-
 // 공유 시트 저장 (편집 권한이 있을 때만, 잠금을 뺏겼으면 조건절에서 걸러짐)
+// (실 시트는 구글시트를 그대로 iframe으로 띄우는 방식이라 이 저장 경로를 타지 않는다 — 팀 전용)
 async function pushTeamData() {
-  if(!(workspace === 'team' || workspace === 'sil') || !teamCanEdit || !authUser || !currentTeamId) return;
+  if(workspace !== 'team' || !teamCanEdit || !authUser || !currentTeamId) return;
   try {
     await sb.from('shared_data').update({
-      data: currentSharedPayload(),
+      data: stateToData(),
       updated_at: new Date().toISOString(),
       updated_by_name: myNickname(),
       locked_at: new Date().toISOString()
@@ -2158,13 +2122,13 @@ function stopTeamTimers() {
 }
 
 async function teamPollLock() {
-  if(!(workspace === 'team' || workspace === 'sil') || teamCanEdit || !currentTeamId) return;
+  if(workspace !== 'team' || teamCanEdit || !currentTeamId) return;
   try {
     const { data } = await sb.from('shared_data').select('*').eq('id', currentTeamId).maybeSingle();
     if(!data) return;
     teamLockName = data.locked_by_name || '';
-    applySharedPayload(data.data);
-    renderWorkspaceContent();
+    stateFromData(data.data);
+    renderAll();
     const lockFree = !data.locked_by || !data.locked_at ||
       (Date.now() - new Date(data.locked_at).getTime() > TEAM_LOCK_TIMEOUT_MS);
     renderWorkspaceUI(lockFree);
@@ -2183,7 +2147,7 @@ async function enterTeamWorkspace(teamId, force) {
     localStorage.setItem('planup_team_id', teamId);
     teamCanEdit = row.locked_by === authUser.id;
     teamLockName = row.locked_by_name || '';
-    applySharedPayload(row.data);
+    stateFromData(row.data);
     state.selectedDate = todayYMD_();
     startTeamTimers();
     renderWorkspaceUI();
@@ -2192,33 +2156,6 @@ async function enterTeamWorkspace(teamId, force) {
     autoSyncGcal(); // 팀 캘린더를 하루 한 번 자동으로 가져옴 (팀마다 연동된 캘린더가 다를 수 있음)
   } catch(e) {
     showToast('공유 시트 오류: ' + ((e && e.message) || '알 수 없는 오류'));
-  }
-}
-
-// 실 시트는 팀과 같은 잠금 방식을 그대로 쓰지만(엑셀식, 한 번에 한 명만 편집), 비밀번호는 없다 —
-// 실 전체가 보는 것이라 개인 로그인만 되어 있으면 누구나 바로 들어올 수 있어야 한다는 게 정해진 방향.
-const SIL_ID = 'sil';
-async function enterSilWorkspace(force) {
-  if(!authUser) return;
-  try {
-    const { data: row, error } = await sb.rpc('acquire_shared_lock', { p_team_id: SIL_ID, p_name: myNickname(), p_force: !!force });
-    if(error) throw error;
-    if(!row) { showToast('실 시트를 열지 못했어요'); return; }
-    workspace = 'sil';
-    currentTeamId = SIL_ID;
-    localStorage.setItem('planup_workspace', 'sil');
-    localStorage.setItem('planup_team_id', SIL_ID);
-    teamCanEdit = row.locked_by === authUser.id;
-    teamLockName = row.locked_by_name || '';
-    applySharedPayload(row.data);
-    startTeamTimers();
-    // renderWorkspaceUI → applyWorkspaceTabs가 지금 탭이 'sil'이 아니면 알아서 전환해준다.
-    // 이미 'sil' 탭이었던 경우(강제로 편집권한 재획득 등)엔 전환이 안 일어나므로 내용은 직접 새로 그린다.
-    renderWorkspaceUI();
-    renderSilView();
-    showToast(teamCanEdit ? '실 시트 · 편집 모드로 열었어요' : `${teamLockName}님이 수정 중이라 읽기 전용으로 열었어요`);
-  } catch(e) {
-    showToast('실 시트 오류: ' + ((e && e.message) || '알 수 없는 오류'));
   }
 }
 
@@ -2232,7 +2169,6 @@ async function exitTeamWorkspace() {
   currentTeamId = null;
   teamCanEdit = false;
   teamLockName = '';
-  silSheets = {}; silSheetOrder = []; silActiveSheet = null;
   localStorage.setItem('planup_workspace', 'personal');
   load(); // 내 개인 데이터를 localStorage에서 다시 읽어옴
   state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
@@ -2255,7 +2191,7 @@ function openTeamPicker() {
     </button>`).join('');
   const silBtn = `
     <div class="team-pick-divider"></div>
-    <button class="team-pick-btn sil" onclick="closeTeamPicker();enterSilWorkspace(false)">
+    <button class="team-pick-btn sil" onclick="closeTeamPicker();enterSilWorkspace()">
       <span>실 시트 <span class="team-pick-hint">비밀번호 없이 바로 열려요</span></span>${arrow}
     </button>`;
   document.getElementById('teamPickerList').innerHTML = teamBtns + silBtn;
@@ -2309,8 +2245,7 @@ function toggleWorkspace() {
 function teamForceEdit() {
   if(!currentTeamId) return;
   if(!confirm(`${teamLockName || '다른 사용자'}님의 편집 권한을 가져올까요?\n\n상대가 지금도 수정 중이라면, 상대가 저장하지 못한 내용은 사라질 수 있어요.`)) return;
-  if(workspace === 'sil') enterSilWorkspace(true);
-  else enterTeamWorkspace(currentTeamId, true);
+  enterTeamWorkspace(currentTeamId, true);
 }
 
 // 화면 구성이 워크스페이스마다 완전히 다르다: 개인은 보통 탭 전부, 팀은 캠페인/예산계산기 대신 정보,
@@ -2329,221 +2264,48 @@ function applyWorkspaceTabs() {
   if(!shown.has(state.currentTab)) switchTab(shown.values().next().value || 'home');
 }
 
-// 실 모드일 땐 일반 탭(홈/캘린더/업무 등)을 그릴 필요가 없어서, renderAll() 대신 이걸 부른다
-function renderWorkspaceContent() {
-  if(workspace === 'sil') renderSilView();
-  else renderAll();
-}
-
 function renderWorkspaceUI(lockFree) {
   applyWorkspaceTabs();
   const btnText = document.getElementById('workspaceBtnText');
   if(btnText) btnText.textContent = (workspace === 'team' || workspace === 'sil') ? '내 데이터로' : '공유';
+  // 실 시트는 구글시트 자체가 여러 명 동시 편집을 지원해서 잠금/편집권한 배너가 필요 없다 (뷰 안에 안내문이 따로 있음)
   const banner = document.getElementById('teamBanner');
   if(!banner) return;
-  if(workspace !== 'team' && workspace !== 'sil') { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  if(workspace !== 'team') { banner.style.display = 'none'; banner.innerHTML = ''; return; }
   banner.style.display = '';
-  const label = workspace === 'sil' ? '실 시트' : escHtml(teamName(currentTeamId));
-  const reenter = workspace === 'sil' ? 'enterSilWorkspace(false)' : `enterTeamWorkspace('${currentTeamId}',false)`;
+  const label = escHtml(teamName(currentTeamId));
   if(teamCanEdit) {
-    banner.innerHTML = `<div class="team-banner edit">📋 <b>${label} · 편집 중</b>
+    banner.innerHTML = `<div class="team-banner edit">📋 <b>${label} 공유 시트 · 편집 중</b>
       <span class="team-banner-sub">지금은 나만 수정할 수 있어요. 다 쓰면 "내 데이터로"를 눌러 잠금을 풀어주세요.</span></div>`;
   } else {
-    banner.innerHTML = `<div class="team-banner read">🔒 <b>${label} · 읽기 전용</b>
+    banner.innerHTML = `<div class="team-banner read">🔒 <b>${label} 공유 시트 · 읽기 전용</b>
       <span class="team-banner-sub">${lockFree ? '지금은 편집할 수 있어요' : escHtml(teamLockName || '다른 사용자') + '님이 수정 중이에요'}</span>
-      <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="${lockFree ? reenter : 'teamForceEdit()'}">${lockFree ? '편집 모드로 전환' : '강제로 편집 권한 가져오기'}</button></div>`;
+      <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="${lockFree ? `enterTeamWorkspace('${currentTeamId}',false)` : 'teamForceEdit()'}">${lockFree ? '편집 모드로 전환' : '강제로 편집 권한 가져오기'}</button></div>`;
   }
 }
 
 // 창을 닫을 때 잠금 해제 시도 (실패해도 2분 뒤 자동 만료되므로 안전)
 window.addEventListener('beforeunload', () => {
-  if((workspace === 'team' || workspace === 'sil') && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
+  if(workspace === 'team' && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
 });
 
-// ── 실 시트 (구글시트 대체 — 여러 개의 자유 형식 표) ──────────────────
-// silSheets: { 표이름: { rows, cols, grid: string[][] } }. cal_* 데이터 모델과 전혀 다른,
-// "그냥 셀 값 2차원 배열" 형태라 개인/팀 저장 로직과는 완전히 분리해 다룬다.
-let silSheets = {};
-let silSheetOrder = [];   // 표 표시 순서 (object key 순서에만 기대지 않으려고 따로 관리)
-let silActiveSheet = null;
+// ── 실 시트 (구글시트 실시간 연동) ────────────────────────────────
+// 자체 표를 새로 만드는 대신 구글시트를 iframe으로 그대로 띄운다 — 서식·수식이 100% 유지되고,
+// 여기서 고치면 실제 문서도 그대로 바뀐다. 구글시트 자체가 이미 여러 명 동시 편집을 지원해서,
+// 팀/실 잠금 방식(엑셀식 단일 편집자)이 필요 없다 — 접근 권한은 구글시트 공유 설정을 그대로 따라간다.
+const SIL_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1z_YH_c1-_GpptPOpP2miZ-pJkRwROpy7gUtyA0cr_qU/edit?usp=sharing&rm=minimal';
 
-function colLetter(i) {
-  let s = '';
-  i++;
-  while(i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
-  return s;
+function enterSilWorkspace() {
+  workspace = 'sil';
+  currentTeamId = null;
+  localStorage.setItem('planup_workspace', 'sil');
+  renderWorkspaceUI();
+  switchTab('sil');
 }
 
 function renderSilView() {
-  const notice = document.getElementById('silNotice');
-  if(notice) notice.innerHTML = teamCanEdit ? '' :
-    `<div class="info-notice">🔒 읽기 전용이에요. 편집하려면 헤더의 "공유"에서 편집 모드로 전환해주세요.</div>`;
-
-  const empty = document.getElementById('silEmpty');
-  const wrap = document.querySelector('.sil-grid-wrap');
-  if(!silSheetOrder.length) {
-    if(empty) empty.style.display = '';
-    if(wrap) wrap.style.display = 'none';
-    document.getElementById('silToolbar').innerHTML = '';
-    document.getElementById('silSheetTabs').innerHTML = '';
-    return;
-  }
-  if(empty) empty.style.display = 'none';
-  if(wrap) wrap.style.display = '';
-  if(!silActiveSheet || !silSheets[silActiveSheet]) silActiveSheet = silSheetOrder[0];
-  renderSilTabs();
-  renderSilToolbar();
-  renderSilGrid();
-}
-
-function renderSilTabs() {
-  document.getElementById('silSheetTabs').innerHTML = silSheetOrder.map(name => `
-    <button class="sheet-tab-btn${name === silActiveSheet ? ' active' : ''}" onclick="switchSilSheet('${escHtml(name).replace(/'/g, "\\'")}')">${escHtml(name)}</button>
-  `).join('');
-}
-
-function renderSilToolbar() {
-  const box = document.getElementById('silToolbar');
-  const sheet = silSheets[silActiveSheet];
-  if(!sheet) { box.innerHTML = ''; return; }
-  const dims = `${sheet.grid.length}행 × ${sheet.cols || 0}열`;
-  const esc = escHtml(silActiveSheet).replace(/'/g, "\\'");
-  box.innerHTML = `
-    <span class="sil-toolbar-name">${escHtml(silActiveSheet)} <span style="color:var(--gray-400);font-weight:500">(${dims})</span></span>
-    ${teamCanEdit ? `
-      <button class="btn btn-ghost btn-xs" onclick="silAddRow()">+ 행</button>
-      <button class="btn btn-ghost btn-xs" onclick="silAddCol()">+ 열</button>
-      <button class="btn btn-ghost btn-xs" onclick="renameSilSheet('${esc}')">이름변경</button>
-      <button class="btn btn-danger btn-xs" onclick="deleteSilSheet('${esc}')">표 삭제</button>
-    ` : ''}`;
-}
-
-// 셀 1만개가 넘는 표도 있어서(엔스퀘어+지하철12578 등) 문자열을 한 번에 만들어 innerHTML로 넣는다 —
-// 셀마다 DOM API를 호출하면 큰 표에서 눈에 띄게 느려짐
-function renderSilGrid() {
-  const table = document.getElementById('silGridTable');
-  const sheet = silSheets[silActiveSheet];
-  if(!sheet) { table.innerHTML = ''; return; }
-  const cols = sheet.cols || (sheet.grid[0] ? sheet.grid[0].length : 0);
-  let head = '<thead><tr><th class="sil-rownum"></th>';
-  for(let c = 0; c < cols; c++) head += `<th>${colLetter(c)}</th>`;
-  head += '</tr></thead>';
-  let body = '<tbody>';
-  for(let r = 0; r < sheet.grid.length; r++) {
-    body += `<tr><td class="sil-rownum">${r + 1}</td>`;
-    const rowArr = sheet.grid[r] || [];
-    for(let c = 0; c < cols; c++) {
-      const v = rowArr[c] != null ? rowArr[c] : '';
-      body += `<td class="sil-cell" contenteditable="${teamCanEdit ? 'true' : 'false'}" data-r="${r}" data-c="${c}" onblur="silCellInput(this)">${escHtml(v)}</td>`;
-    }
-    body += '</tr>';
-  }
-  body += '</tbody>';
-  table.innerHTML = head + body;
-}
-
-function switchSilSheet(name) {
-  silActiveSheet = name;
-  renderSilTabs();
-  renderSilToolbar();
-  renderSilGrid();
-}
-
-function silCellInput(td) {
-  if(!teamCanEdit) return;
-  const sheet = silSheets[silActiveSheet];
-  if(!sheet) return;
-  const r = +td.dataset.r, c = +td.dataset.c;
-  if(!sheet.grid[r]) sheet.grid[r] = [];
-  const val = td.textContent;
-  if((sheet.grid[r][c] || '') === val) return;
-  sheet.grid[r][c] = val;
-  teamSyncRemote();
-}
-
-function addSilSheet() {
-  if(!teamCanEdit) { showToast('읽기 전용 모드에선 추가할 수 없어요'); return; }
-  const name = prompt('새 표 이름을 입력하세요');
-  if(!name || !name.trim()) return;
-  const clean = name.trim();
-  if(silSheets[clean]) { showToast('이미 있는 이름이에요'); return; }
-  silSheets[clean] = { rows: 10, cols: 6, grid: Array.from({ length: 10 }, () => Array(6).fill('')) };
-  silSheetOrder.push(clean);
-  silActiveSheet = clean;
-  renderSilView();
-  teamSyncRemote();
-}
-
-function deleteSilSheet(name) {
-  if(!teamCanEdit) return;
-  if(!confirm(`"${name}" 표를 삭제할까요?`)) return;
-  delete silSheets[name];
-  silSheetOrder = silSheetOrder.filter(n => n !== name);
-  silActiveSheet = silSheetOrder[0] || null;
-  renderSilView();
-  teamSyncRemote();
-}
-
-function renameSilSheet(oldName) {
-  if(!teamCanEdit) return;
-  const name = prompt('새 이름을 입력하세요', oldName);
-  if(!name || !name.trim() || name.trim() === oldName) return;
-  const clean = name.trim();
-  if(silSheets[clean]) { showToast('이미 있는 이름이에요'); return; }
-  silSheets[clean] = silSheets[oldName];
-  delete silSheets[oldName];
-  const idx = silSheetOrder.indexOf(oldName);
-  if(idx !== -1) silSheetOrder[idx] = clean;
-  if(silActiveSheet === oldName) silActiveSheet = clean;
-  renderSilView();
-  teamSyncRemote();
-}
-
-function silAddRow() {
-  if(!teamCanEdit || !silActiveSheet) return;
-  const sheet = silSheets[silActiveSheet];
-  sheet.grid.push(Array(sheet.cols || 0).fill(''));
-  renderSilToolbar();
-  renderSilGrid();
-  teamSyncRemote();
-}
-
-function silAddCol() {
-  if(!teamCanEdit || !silActiveSheet) return;
-  const sheet = silSheets[silActiveSheet];
-  sheet.cols = (sheet.cols || 0) + 1;
-  sheet.grid.forEach(row => row.push(''));
-  renderSilToolbar();
-  renderSilGrid();
-  teamSyncRemote();
-}
-
-// JSON으로 표를 가져온다. 표 이름이 같으면 그 표만 통째로 덮어쓰고, 새 이름이면 추가한다 (셀 단위 병합은 안 함 — 원본 파일을 그대로 옮기는 용도라 표 단위가 더 명확함)
-function handleSilImport(evt) {
-  const file = evt.target.files && evt.target.files[0];
-  evt.target.value = '';
-  if(!file) return;
-  if(!teamCanEdit) { showToast('읽기 전용 모드에선 가져올 수 없어요'); return; }
-  const reader = new FileReader();
-  reader.onload = () => {
-    let obj;
-    try { obj = JSON.parse(reader.result); } catch(e) { showToast('JSON 파일을 읽지 못했어요'); return; }
-    if(!obj || typeof obj !== 'object' || Array.isArray(obj)) { showToast('올바른 형식이 아니에요'); return; }
-    const names = Object.keys(obj).filter(n => obj[n] && Array.isArray(obj[n].grid));
-    if(!names.length) { showToast('가져올 표가 없어요'); return; }
-    if(!confirm(`표 ${names.length}개를 가져올게요.\n\n이름이 같은 표는 통째로 덮어써지고, 새 이름은 추가돼요.`)) return;
-    names.forEach(name => {
-      const s = obj[name];
-      silSheets[name] = { rows: s.grid.length, cols: s.cols || (s.grid[0] ? s.grid[0].length : 0), grid: s.grid };
-      if(!silSheetOrder.includes(name)) silSheetOrder.push(name);
-    });
-    silActiveSheet = silSheetOrder[0] || null;
-    renderSilView();
-    teamSyncRemote();
-    showToast(`표 ${names.length}개를 가져왔어요`);
-  };
-  reader.onerror = () => showToast('파일을 읽는 중 오류가 발생했어요');
-  reader.readAsText(file);
+  const frame = document.getElementById('silFrame');
+  if(frame && !frame.src) frame.src = SIL_SHEET_URL; // 이미 로드돼 있으면 다시 안 바꿈 (편집 중이던 내용이 새로고침되지 않게)
 }
 
 // ── 정보 탭 (매체 컨택포인트 / 계정) ────────────────────────────────
@@ -6381,13 +6143,13 @@ function startApp() {
   autoSyncGcal();
   mmSetupDragDrop();
   renderWorkspaceUI();
-  // 지난번에 공유 시트를 보고 있었다면 다시 열어준다 (잠금은 새로 잡는다).
+  // 지난번에 공유 시트를 보고 있었다면 다시 열어준다.
   // 팀은 이번 브라우저 세션에서 그 팀 비밀번호를 아직 안 풀었으면(=새로 켠 탭) 자동으로 들여보내지 않는다.
-  // 실 시트는 애초에 비밀번호가 없어서 그 제약이 필요 없다.
+  // 실 시트는 잠금도 비밀번호도 없어서(구글시트 iframe일 뿐) 그 제약이 필요 없다.
   const savedWorkspace = localStorage.getItem('planup_workspace');
   const savedTeamId = localStorage.getItem('planup_team_id');
   if(savedWorkspace === 'sil') {
-    enterSilWorkspace(false);
+    enterSilWorkspace();
   } else if(savedWorkspace === 'team' && savedTeamId && sessionStorage.getItem(teamUnlockKey(savedTeamId)) === '1') {
     enterTeamWorkspace(savedTeamId, false);
   }
