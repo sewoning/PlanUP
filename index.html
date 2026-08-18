@@ -1352,6 +1352,27 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   </div>
 </div>
 
+<!-- ── 팀 공유 시트 비밀번호 ── -->
+<div class="modal-overlay" id="teamPwModal" onclick="if(event.target===this)closeTeamPwModal()">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title">팀 공유 시트 비밀번호</div>
+      <button class="modal-close" onclick="closeTeamPwModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">비밀번호</label>
+        <input type="password" class="form-input" id="teamPwInput" placeholder="팀 비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')submitTeamPw()">
+      </div>
+      <div id="teamPwError" style="font-size:12px;color:var(--red);min-height:16px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTeamPwModal()">취소</button>
+      <button class="btn btn-primary" id="teamPwSubmitBtn" onclick="submitTeamPw()">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 전체 검색 ── -->
 <div class="modal-overlay" id="searchModal" onclick="if(event.target===this)closeSearch()">
   <div class="modal search-modal">
@@ -2100,9 +2121,42 @@ async function exitTeamWorkspace() {
   showToast('내 데이터로 돌아왔어요');
 }
 
+// 팀 공유 시트는 별도 비밀번호로 잠가둔다 (개인 로그인과는 별개 — 실 안의 특정 팀 데이터만 더 보호하기 위함).
+// 브라우저 탭을 닫을 때까지만 기억해서(세션 스토리지), 매번 다시 묻되 새로고침 정도는 안 걸리게 한다.
+const TEAM_UNLOCK_KEY = 'planup_team_unlocked';
+
+function openTeamPwModal() {
+  document.getElementById('teamPwInput').value = '';
+  document.getElementById('teamPwError').textContent = '';
+  openModal('teamPwModal');
+  setTimeout(() => document.getElementById('teamPwInput').focus(), 60);
+}
+function closeTeamPwModal() { closeModal('teamPwModal'); }
+
+async function submitTeamPw() {
+  const pw = document.getElementById('teamPwInput').value;
+  const errEl = document.getElementById('teamPwError');
+  if(!pw) { errEl.textContent = '비밀번호를 입력해주세요'; return; }
+  const btn = document.getElementById('teamPwSubmitBtn');
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.rpc('verify_team_password', { p_password: pw });
+    if(error) throw error;
+    if(!data) { errEl.textContent = '비밀번호가 맞지 않아요'; return; }
+    sessionStorage.setItem(TEAM_UNLOCK_KEY, '1');
+    closeTeamPwModal();
+    enterTeamWorkspace(false);
+  } catch(e) {
+    errEl.textContent = '확인 중 오류: ' + ((e && e.message) || '알 수 없는 오류');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function toggleWorkspace() {
-  if(workspace === 'team') exitTeamWorkspace();
-  else enterTeamWorkspace(false);
+  if(workspace === 'team') { exitTeamWorkspace(); return; }
+  if(sessionStorage.getItem(TEAM_UNLOCK_KEY) === '1') { enterTeamWorkspace(false); return; }
+  openTeamPwModal();
 }
 
 function teamForceEdit() {
@@ -4048,6 +4102,7 @@ document.addEventListener('keydown', e => {
   }
   if(e.key!=='Escape') return;
   if(document.getElementById('searchModal').classList.contains('open')) { closeSearch(); return; }
+  if(document.getElementById('teamPwModal').classList.contains('open')) { closeTeamPwModal(); return; }
   if(rp.open){ closeRangePicker(); return; }
   if(document.getElementById('gcalModal').classList.contains('open')) { closeGcalModal(); return; }
   if(document.getElementById('itemModal').classList.contains('open')) closeModal('itemModal');
@@ -5977,8 +6032,11 @@ function startApp() {
   autoSyncGcal();
   mmSetupDragDrop();
   renderWorkspaceUI();
-  // 지난번에 팀 공유 시트를 보고 있었다면 다시 열어준다 (잠금은 새로 잡는다)
-  if(localStorage.getItem('planup_workspace') === 'team') enterTeamWorkspace(false);
+  // 지난번에 팀 공유 시트를 보고 있었다면 다시 열어준다 (잠금은 새로 잡는다).
+  // 단, 이번 브라우저 세션에서 팀 비밀번호를 아직 안 풀었으면(=새로 켠 탭) 자동으로 들여보내지 않는다.
+  if(localStorage.getItem('planup_workspace') === 'team' && sessionStorage.getItem(TEAM_UNLOCK_KEY) === '1') {
+    enterTeamWorkspace(false);
+  }
 }
 
 initAuth();
