@@ -5,6 +5,31 @@
 -- Supabase 대시보드 → SQL Editor 에 통째로 붙여넣고 실행하세요.
 -- ═══════════════════════════════════════════════════════════════
 
+-- 0) 필요한 테이블이 아직 없으면 만든다 (이전 SQL을 안 돌렸어도 이 파일 하나로 되게)
+create extension if not exists pgcrypto;
+
+create table if not exists shared_data (
+  id              text primary key,
+  data            jsonb not null default '{}'::jsonb,
+  locked_by       uuid,
+  locked_by_name  text,
+  locked_at       timestamptz,
+  updated_at      timestamptz default now(),
+  updated_by_name text
+);
+alter table shared_data enable row level security;
+drop policy if exists "shared_data read"  on shared_data;
+create policy "shared_data read"  on shared_data for select to authenticated using (true);
+drop policy if exists "shared_data write" on shared_data;
+create policy "shared_data write" on shared_data for update to authenticated using (true) with check (true);
+
+create table if not exists team_settings (
+  id            text primary key,
+  password_hash text not null
+);
+alter table team_settings enable row level security;
+-- select/insert/update 정책을 의도적으로 하나도 안 만든다 (직접 조회·수정 전면 차단, 아래 함수로만 비교)
+
 -- 1) 기존에 팀이 하나였을 때 쓰던 행("team")이 있으면 광고9팀 몫으로 옮긴다
 --    (이미 입력해둔 공유 데이터가 있다면 안 날아가게)
 update shared_data   set id = '9team' where id = 'team' and not exists (select 1 from shared_data where id = '9team');
