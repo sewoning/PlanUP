@@ -622,6 +622,10 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 @media(prefers-reduced-motion:reduce){.search-flash{animation:none;box-shadow:0 0 0 3px rgba(0,117,222,.35);}}
 @media(max-width:700px){.search-sub{display:none}}
 
+.team-pick-list{display:flex;flex-direction:column;gap:8px;}
+.team-pick-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;height:48px;padding:0 16px;border:1px solid var(--gray-200);background:#fff;border-radius:var(--r-md);font-size:14px;font-weight:700;color:var(--gray-800);font-family:inherit;cursor:pointer;transition:all .12s;}
+.team-pick-btn:hover{border-color:var(--blue);background:var(--blue-light);color:var(--blue-dark);}
+.team-pick-btn svg{color:var(--gray-300);flex-shrink:0;}
 .team-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-radius:var(--r-md);font-size:13px;margin-bottom:16px;}
 .team-banner.edit{background:var(--blue-light);color:var(--blue-dark);}
 .team-banner.read{background:var(--warn-bg);color:var(--warn-text);}
@@ -1352,11 +1356,24 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   </div>
 </div>
 
+<!-- ── 팀 선택 ── -->
+<div class="modal-overlay" id="teamPickerModal" onclick="if(event.target===this)closeTeamPicker()">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-title">어느 팀 시트를 열까요?</div>
+      <button class="modal-close" onclick="closeTeamPicker()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="team-pick-list" id="teamPickerList"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ── 팀 공유 시트 비밀번호 ── -->
 <div class="modal-overlay" id="teamPwModal" onclick="if(event.target===this)closeTeamPwModal()">
   <div class="modal" style="max-width:360px">
     <div class="modal-header">
-      <div class="modal-title">팀 공유 시트 비밀번호</div>
+      <div class="modal-title" id="teamPwModalTitle">팀 공유 시트 비밀번호</div>
       <button class="modal-close" onclick="closeTeamPwModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -1489,7 +1506,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <input type="url" id="gcalUrlInput" class="form-input" placeholder="https://calendar.google.com/calendar/ical/..." style="font-size:12px">
       </div>
       <div id="gcalTeamNote" style="display:none;font-size:12px;color:var(--blue-dark);background:var(--blue-light);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:12px;">
-        팀 공유 시트는 <b>광고9팀 캘린더</b>로 고정되어 있어요. 모두가 같은 일정을 보도록 주소는 바꿀 수 없어요.
+        팀 공유 시트는 <b id="gcalTeamNoteName">이 팀</b> 캘린더로 고정되어 있어요. 모두가 같은 일정을 보도록 주소는 바꿀 수 없어요.
       </div>
       <div id="gcalStatus" style="font-size:12px;margin-bottom:14px;min-height:18px"></div>
       <details style="margin-bottom:16px">
@@ -1993,7 +2010,7 @@ async function initAuth() {
 }
 
 function logout() {
-  if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
+  if(workspace === 'team' && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
   sb.auth.signOut();
   authUser = null;
   location.reload();
@@ -2001,9 +2018,17 @@ function logout() {
 
 // ── 팀 공유 시트 (엑셀 파일 잠금 방식: 한 번에 한 명만 편집) ──────────
 // 공유 데이터는 localStorage에 절대 쓰지 않고 메모리+Supabase에만 둔다. 내 개인 데이터와 섞이지 않게 하기 위함.
-const TEAM_ID = 'team';
+// 실 안에 팀이 여러 개라(광고8/9/10팀), 팀마다 shared_data/team_settings 행이 따로 있고 비밀번호도 따로다.
+const TEAMS = [
+  { id: '8team',  name: '광고8팀' },
+  { id: '9team',  name: '광고9팀' },
+  { id: '10team', name: '광고10팀' }
+];
+function teamName(id) { const t = TEAMS.find(x => x.id === id); return t ? t.name : (id || '팀'); }
+
 const TEAM_LOCK_TIMEOUT_MS = 2 * 60 * 1000; // 이 시간 동안 신호가 없으면 잠금이 풀린 것으로 본다
 let workspace = 'personal';   // 'personal' | 'team'
+let currentTeamId = null;     // 지금 들어와 있는 팀 (TEAMS의 id)
 let teamCanEdit = false;      // 팀 모드에서 내가 편집 권한을 가졌는지
 let teamLockName = '';        // 지금 편집 중인 사람 닉네임
 let teamHeartbeatTimer = null, teamPollTimer = null, teamPushTimer = null;
@@ -2036,14 +2061,14 @@ function stateToData() {
 
 // 공유 시트 저장 (편집 권한이 있을 때만, 잠금을 뺏겼으면 조건절에서 걸러짐)
 async function pushTeamData() {
-  if(workspace !== 'team' || !teamCanEdit || !authUser) return;
+  if(workspace !== 'team' || !teamCanEdit || !authUser || !currentTeamId) return;
   try {
     await sb.from('shared_data').update({
       data: stateToData(),
       updated_at: new Date().toISOString(),
       updated_by_name: myNickname(),
       locked_at: new Date().toISOString()
-    }).eq('id', TEAM_ID).eq('locked_by', authUser.id);
+    }).eq('id', currentTeamId).eq('locked_by', authUser.id);
   } catch(e) {}
 }
 function teamSyncRemote() {
@@ -2055,7 +2080,7 @@ function startTeamTimers() {
   stopTeamTimers();
   if(teamCanEdit) {
     // 편집 중이라는 신호를 주기적으로 보내서 잠금 유지
-    teamHeartbeatTimer = setInterval(() => { try { sb.rpc('heartbeat_shared_lock'); } catch(e) {} }, 30000);
+    teamHeartbeatTimer = setInterval(() => { try { sb.rpc('heartbeat_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }, 30000);
   } else {
     // 읽기 전용이면 상대가 나갔는지 + 최신 내용 확인
     teamPollTimer = setInterval(teamPollLock, 20000);
@@ -2068,9 +2093,9 @@ function stopTeamTimers() {
 }
 
 async function teamPollLock() {
-  if(workspace !== 'team' || teamCanEdit) return;
+  if(workspace !== 'team' || teamCanEdit || !currentTeamId) return;
   try {
-    const { data } = await sb.from('shared_data').select('*').eq('id', TEAM_ID).maybeSingle();
+    const { data } = await sb.from('shared_data').select('*').eq('id', currentTeamId).maybeSingle();
     if(!data) return;
     teamLockName = data.locked_by_name || '';
     stateFromData(data.data);
@@ -2081,14 +2106,16 @@ async function teamPollLock() {
   } catch(e) {}
 }
 
-async function enterTeamWorkspace(force) {
-  if(!authUser) return;
+async function enterTeamWorkspace(teamId, force) {
+  if(!authUser || !teamId) return;
   try {
-    const { data: row, error } = await sb.rpc('acquire_shared_lock', { p_name: myNickname(), p_force: !!force });
+    const { data: row, error } = await sb.rpc('acquire_shared_lock', { p_team_id: teamId, p_name: myNickname(), p_force: !!force });
     if(error) throw error;
     if(!row) { showToast('공유 시트를 열지 못했어요'); return; }
     workspace = 'team';
+    currentTeamId = teamId;
     localStorage.setItem('planup_workspace', 'team');
+    localStorage.setItem('planup_team_id', teamId);
     teamCanEdit = row.locked_by === authUser.id;
     teamLockName = row.locked_by_name || '';
     stateFromData(row.data);
@@ -2096,20 +2123,21 @@ async function enterTeamWorkspace(force) {
     startTeamTimers();
     renderWorkspaceUI();
     renderAll();
-    showToast(teamCanEdit ? '팀 공유 시트 · 편집 모드로 열었어요' : `${teamLockName}님이 수정 중이라 읽기 전용으로 열었어요`);
-    autoSyncGcal(); // 팀 캘린더(광고9팀)를 하루 한 번 자동으로 가져옴
+    showToast(teamCanEdit ? `${teamName(teamId)} 공유 시트 · 편집 모드로 열었어요` : `${teamLockName}님이 수정 중이라 읽기 전용으로 열었어요`);
+    autoSyncGcal(); // 팀 캘린더를 하루 한 번 자동으로 가져옴 (팀마다 연동된 캘린더가 다를 수 있음)
   } catch(e) {
     showToast('공유 시트 오류: ' + ((e && e.message) || '알 수 없는 오류'));
   }
 }
 
 async function exitTeamWorkspace() {
-  if(teamCanEdit) {
+  if(teamCanEdit && currentTeamId) {
     await pushTeamData(); // 나가기 전에 마지막 변경분 저장
-    try { await sb.rpc('release_shared_lock'); } catch(e) {}
+    try { await sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {}
   }
   stopTeamTimers();
   workspace = 'personal';
+  currentTeamId = null;
   teamCanEdit = false;
   teamLockName = '';
   localStorage.setItem('planup_workspace', 'personal');
@@ -2121,31 +2149,52 @@ async function exitTeamWorkspace() {
   showToast('내 데이터로 돌아왔어요');
 }
 
-// 팀 공유 시트는 별도 비밀번호로 잠가둔다 (개인 로그인과는 별개 — 실 안의 특정 팀 데이터만 더 보호하기 위함).
-// 브라우저 탭을 닫을 때까지만 기억해서(세션 스토리지), 매번 다시 묻되 새로고침 정도는 안 걸리게 한다.
-const TEAM_UNLOCK_KEY = 'planup_team_unlocked';
+// 팀 공유 시트는 팀마다 별도 비밀번호로 잠가둔다 (개인 로그인과는 별개 — 다른 팀 데이터를 서로 못 보게 하기 위함).
+// 브라우저 탭을 닫을 때까지만 기억해서(세션 스토리지, 팀별로 각각) 매번 다시 묻되 새로고침 정도는 안 걸리게 한다.
+function teamUnlockKey(teamId) { return 'planup_team_unlocked_' + teamId; }
+let teamPwPendingId = null; // 지금 비밀번호를 입력받고 있는 팀
 
-function openTeamPwModal() {
+function openTeamPicker() {
+  document.getElementById('teamPickerList').innerHTML = TEAMS.map(t => `
+    <button class="team-pick-btn" onclick="chooseTeam('${t.id}')">
+      <span>${escHtml(t.name)}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`).join('');
+  openModal('teamPickerModal');
+}
+function closeTeamPicker() { closeModal('teamPickerModal'); }
+
+function chooseTeam(teamId) {
+  closeTeamPicker();
+  if(sessionStorage.getItem(teamUnlockKey(teamId)) === '1') { enterTeamWorkspace(teamId, false); return; }
+  openTeamPwModal(teamId);
+}
+
+function openTeamPwModal(teamId) {
+  teamPwPendingId = teamId;
+  document.getElementById('teamPwModalTitle').textContent = teamName(teamId) + ' 비밀번호';
   document.getElementById('teamPwInput').value = '';
   document.getElementById('teamPwError').textContent = '';
   openModal('teamPwModal');
   setTimeout(() => document.getElementById('teamPwInput').focus(), 60);
 }
-function closeTeamPwModal() { closeModal('teamPwModal'); }
+function closeTeamPwModal() { closeModal('teamPwModal'); teamPwPendingId = null; }
 
 async function submitTeamPw() {
   const pw = document.getElementById('teamPwInput').value;
   const errEl = document.getElementById('teamPwError');
   if(!pw) { errEl.textContent = '비밀번호를 입력해주세요'; return; }
+  if(!teamPwPendingId) { errEl.textContent = '팀을 다시 선택해주세요'; return; }
   const btn = document.getElementById('teamPwSubmitBtn');
   btn.disabled = true;
   try {
-    const { data, error } = await sb.rpc('verify_team_password', { p_password: pw });
+    const { data, error } = await sb.rpc('verify_team_password', { p_team_id: teamPwPendingId, p_password: pw });
     if(error) throw error;
     if(!data) { errEl.textContent = '비밀번호가 맞지 않아요'; return; }
-    sessionStorage.setItem(TEAM_UNLOCK_KEY, '1');
+    const teamId = teamPwPendingId;
+    sessionStorage.setItem(teamUnlockKey(teamId), '1');
     closeTeamPwModal();
-    enterTeamWorkspace(false);
+    enterTeamWorkspace(teamId, false);
   } catch(e) {
     errEl.textContent = '확인 중 오류: ' + ((e && e.message) || '알 수 없는 오류');
   } finally {
@@ -2155,13 +2204,13 @@ async function submitTeamPw() {
 
 function toggleWorkspace() {
   if(workspace === 'team') { exitTeamWorkspace(); return; }
-  if(sessionStorage.getItem(TEAM_UNLOCK_KEY) === '1') { enterTeamWorkspace(false); return; }
-  openTeamPwModal();
+  openTeamPicker();
 }
 
 function teamForceEdit() {
+  if(!currentTeamId) return;
   if(!confirm(`${teamLockName || '다른 사용자'}님의 편집 권한을 가져올까요?\n\n상대가 지금도 수정 중이라면, 상대가 저장하지 못한 내용은 사라질 수 있어요.`)) return;
-  enterTeamWorkspace(true);
+  enterTeamWorkspace(currentTeamId, true);
 }
 
 // 캠페인 현황 / 일예산 계산기는 개인 데이터 전용, 정보(담당자·계정)는 팀 공유 전용이라 서로 반대로 숨긴다
@@ -2186,19 +2235,20 @@ function renderWorkspaceUI(lockFree) {
   if(!banner) return;
   if(workspace !== 'team') { banner.style.display = 'none'; banner.innerHTML = ''; return; }
   banner.style.display = '';
+  const label = escHtml(teamName(currentTeamId));
   if(teamCanEdit) {
-    banner.innerHTML = `<div class="team-banner edit">📋 <b>팀 공유 시트 · 편집 중</b>
+    banner.innerHTML = `<div class="team-banner edit">📋 <b>${label} 공유 시트 · 편집 중</b>
       <span class="team-banner-sub">지금은 나만 수정할 수 있어요. 다 쓰면 "내 데이터로"를 눌러 잠금을 풀어주세요.</span></div>`;
   } else {
-    banner.innerHTML = `<div class="team-banner read">🔒 <b>팀 공유 시트 · 읽기 전용</b>
+    banner.innerHTML = `<div class="team-banner read">🔒 <b>${label} 공유 시트 · 읽기 전용</b>
       <span class="team-banner-sub">${lockFree ? '지금은 편집할 수 있어요' : escHtml(teamLockName || '다른 사용자') + '님이 수정 중이에요'}</span>
-      <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="${lockFree ? 'enterTeamWorkspace(false)' : 'teamForceEdit()'}">${lockFree ? '편집 모드로 전환' : '강제로 편집 권한 가져오기'}</button></div>`;
+      <button class="btn btn-xs btn-ghost" style="margin-left:auto" onclick="${lockFree ? `enterTeamWorkspace('${currentTeamId}',false)` : 'teamForceEdit()'}">${lockFree ? '편집 모드로 전환' : '강제로 편집 권한 가져오기'}</button></div>`;
   }
 }
 
 // 창을 닫을 때 잠금 해제 시도 (실패해도 2분 뒤 자동 만료되므로 안전)
 window.addEventListener('beforeunload', () => {
-  if(workspace === 'team' && teamCanEdit) { try { sb.rpc('release_shared_lock'); } catch(e) {} }
+  if(workspace === 'team' && teamCanEdit && currentTeamId) { try { sb.rpc('release_shared_lock', { p_team_id: currentTeamId }); } catch(e) {} }
 });
 
 // ── 정보 탭 (매체 컨택포인트 / 계정) ────────────────────────────────
@@ -4286,22 +4336,23 @@ function renderAll() {
 
 // ── Google Calendar iCal Sync ──────────────────────────────────
 const GCAL_PROXY = '/api/gcal-ics?url=';
-// 팀 공유 시트는 광고9팀 캘린더로 고정해서 모두가 같은 일정을 본다 (각자 다른 캘린더로 동기화해서 서로 덮어쓰는 사고 방지).
-// 캘린더 비공개 주소는 아무나 알면 일정을 볼 수 있는 비밀값이라 코드에 두지 않고 서버 환경변수에만 둔다.
-const TEAM_GCAL_ENDPOINT = '/api/gcal-ics?team=1';
-// 개인/팀 동기화 시각을 따로 기록해서 서로의 "오늘 이미 동기화함" 판단에 영향을 주지 않게 한다
-function gcalLastSyncKey() { return workspace === 'team' ? 'cal_gcal_team_last_sync' : 'cal_gcal_last_sync'; }
+// 팀 공유 시트는 그 팀 캘린더로 고정해서 모두가 같은 일정을 본다 (각자 다른 캘린더로 동기화해서 서로 덮어쓰는 사고 방지).
+// 캘린더 비공개 주소는 아무나 알면 일정을 볼 수 있는 비밀값이라 코드에 두지 않고 서버 환경변수에 팀별로 둔다.
+function teamGcalEndpoint(teamId) { return '/api/gcal-ics?team=' + encodeURIComponent(teamId); }
+// 개인/팀(그리고 팀마다) 동기화 시각을 따로 기록해서 서로의 "오늘 이미 동기화함" 판단에 영향을 주지 않게 한다
+function gcalLastSyncKey() { return workspace === 'team' ? `cal_gcal_team_last_sync_${currentTeamId}` : 'cal_gcal_last_sync'; }
 
 function openGcalModal() {
   const isTeam = workspace === 'team';
-  const url = isTeam ? '광고9팀 캘린더 (서버에 설정되어 있어요)' : (localStorage.getItem('cal_gcal_url') || '');
+  const url = isTeam ? `${teamName(currentTeamId)} 캘린더 (서버에 설정되어 있어요)` : (localStorage.getItem('cal_gcal_url') || '');
   const lastSync = localStorage.getItem(gcalLastSyncKey());
   const count = parseInt(localStorage.getItem('cal_gcal_count') || '0');
   const input = document.getElementById('gcalUrlInput');
   input.value = url;
-  input.readOnly = isTeam; // 팀 공유 시트는 광고9팀 캘린더로 고정
+  input.readOnly = isTeam; // 팀 공유 시트는 그 팀 캘린더로 고정
   const teamNote = document.getElementById('gcalTeamNote');
   if(teamNote) teamNote.style.display = isTeam ? '' : 'none';
+  if(isTeam) document.getElementById('gcalTeamNoteName').textContent = teamName(currentTeamId);
   const statusEl = document.getElementById('gcalStatus');
   const clearBtn = document.getElementById('gcalClearBtn');
   if(isTeam) {
@@ -4338,13 +4389,13 @@ function closeGcalModal() {
 }
 
 // 네트워크가 가끔 타임아웃되는 경우가 있어 몇 번 재시도한다.
-// isTeam이면 주소 대신 로그인 토큰만 보내고, 실제 캘린더 주소는 서버가 환경변수에서 꺼내 쓴다.
-async function fetchICS(url, isTeam) {
+// teamId가 있으면 주소 대신 로그인 토큰 + 팀 id만 보내고, 실제 캘린더 주소는 서버가 그 팀의 환경변수에서 꺼내 쓴다.
+async function fetchICS(url, teamId) {
   const ATTEMPTS = 3, TIMEOUT_MS = 12000;
   let target = GCAL_PROXY + encodeURIComponent(url);
   const baseOpts = { cache: 'no-store' };
-  if(isTeam) {
-    target = TEAM_GCAL_ENDPOINT;
+  if(teamId) {
+    target = teamGcalEndpoint(teamId);
     const { data } = await sb.auth.getSession();
     baseOpts.headers = { Authorization: 'Bearer ' + ((data && data.session && data.session.access_token) || '') };
   }
@@ -4362,8 +4413,8 @@ async function fetchICS(url, isTeam) {
       } else {
         const body = await resp.text().catch(() => '');
         lastErr = `서버 응답 ${resp.status}${body ? ' · ' + body.slice(0, 120) : ''}`;
-        // 인증/설정 문제는 다시 시도해도 같은 결과라 바로 중단
-        if(resp.status === 401 || resp.status === 500) break;
+        // 인증/설정 문제나 "이 팀엔 캘린더 미설정"은 다시 시도해도 같은 결과라 바로 중단
+        if(resp.status === 401 || resp.status === 404 || resp.status === 500) break;
       }
     } catch(e) {
       clearTimeout(timer);
@@ -4384,7 +4435,7 @@ async function syncGcal() {
   statusEl.textContent = '구글 캘린더에서 일정을 가져오는 중...';
   statusEl.style.color = 'var(--gray-500)';
   try {
-    const icsText = await fetchICS(url, isTeam);
+    const icsText = await fetchICS(url, isTeam ? currentTeamId : null);
     const parsed = parseICS(icsText);
     const count = applyGcalEvents(parsed);
     if(!isTeam) localStorage.setItem('cal_gcal_url', url); // 팀 캘린더 주소는 개인 설정으로 저장하지 않음
@@ -4508,7 +4559,7 @@ async function autoSyncGcal() {
   const lastSyncRaw = localStorage.getItem(key);
   if(lastSyncRaw && new Date(Number(lastSyncRaw)).toDateString() === now.toDateString()) return;
   try {
-    const icsText = await fetchICS(url, isTeam);
+    const icsText = await fetchICS(url, isTeam ? currentTeamId : null);
     const parsed = parseICS(icsText);
     const count = applyGcalEvents(parsed);
     localStorage.setItem(key, Date.now().toString());
@@ -6033,9 +6084,10 @@ function startApp() {
   mmSetupDragDrop();
   renderWorkspaceUI();
   // 지난번에 팀 공유 시트를 보고 있었다면 다시 열어준다 (잠금은 새로 잡는다).
-  // 단, 이번 브라우저 세션에서 팀 비밀번호를 아직 안 풀었으면(=새로 켠 탭) 자동으로 들여보내지 않는다.
-  if(localStorage.getItem('planup_workspace') === 'team' && sessionStorage.getItem(TEAM_UNLOCK_KEY) === '1') {
-    enterTeamWorkspace(false);
+  // 단, 이번 브라우저 세션에서 그 팀 비밀번호를 아직 안 풀었으면(=새로 켠 탭) 자동으로 들여보내지 않는다.
+  const savedTeamId = localStorage.getItem('planup_team_id');
+  if(localStorage.getItem('planup_workspace') === 'team' && savedTeamId && sessionStorage.getItem(teamUnlockKey(savedTeamId)) === '1') {
+    enterTeamWorkspace(savedTeamId, false);
   }
 }
 

@@ -3,8 +3,8 @@
 // (예전엔 무료 공개 프록시 api.allorigins.win을 썼는데, 여러 명이 동시에 쓰면
 // 레이트리밋에 걸려 사람마다 되고 안 되고가 갈리는 문제가 있었음)
 //
-// ?team=1 이면 팀 공유 시트용 요청. 팀 캘린더의 "비공개 주소"는 그것만 알면 누구나
-// 일정을 볼 수 있는 비밀값이라, 코드/클라이언트에 두지 않고 TEAM_GCAL_URL 환경변수로만 둔다.
+// ?team=<팀id> 이면 팀 공유 시트용 요청. 팀 캘린더의 "비공개 주소"는 그것만 알면 누구나
+// 일정을 볼 수 있는 비밀값이라, 코드/클라이언트에 두지 않고 팀별 환경변수(TEAM_GCAL_URL_<팀ID>)로만 둔다.
 // 이 경우 로그인한 사용자인지 확인한 뒤에만 내려준다.
 
 const SUPABASE_URL = 'https://awtdpyoiecymhnwjvtki.supabase.co';
@@ -33,9 +33,16 @@ module.exports = async (req, res) => {
       res.status(401).send('login required');
       return;
     }
-    url = process.env.TEAM_GCAL_URL;
+    const teamId = String(req.query.team);
+    if (!/^[a-z0-9_-]+$/i.test(teamId)) {
+      res.status(400).send('invalid team id');
+      return;
+    }
+    url = process.env['TEAM_GCAL_URL_' + teamId.toUpperCase()];
+    // 팀이 하나뿐이던 시절 쓰던 환경변수와의 호환 (광고9팀 몫)
+    if (!url && teamId === '9team') url = process.env.TEAM_GCAL_URL;
     if (!url) {
-      res.status(500).send('TEAM_GCAL_URL is not configured');
+      res.status(404).send('no calendar configured for this team');
       return;
     }
   } else {
