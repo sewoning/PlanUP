@@ -343,6 +343,14 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .home-camp-dday { font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0; white-space:nowrap; }
 .home-camp-dday.start { background:var(--blue-light); color:var(--blue); }
 .home-camp-dday.end { background:var(--danger-bg); color:var(--red); }
+.notice-item { padding:11px 12px; border-radius:8px; background:#fff; border:1px solid var(--gray-200); display:flex; flex-direction:column; gap:6px; }
+.notice-item.confirmed { background:var(--gray-50,#fafafa); border-color:var(--gray-100); }
+.notice-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.notice-item-title { font-size:13px; font-weight:700; color:var(--gray-900); line-height:1.35; }
+.notice-item-content { font-size:12px; color:var(--gray-600); line-height:1.5; white-space:pre-wrap; }
+.notice-item-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
+.notice-item-meta { font-size:11px; color:var(--gray-400); }
+.notice-item-confirmed { font-size:11px; color:var(--gray-400); border-top:1px dashed var(--gray-200); padding-top:6px; word-break:break-all; }
 .wfb-summary-btn { height:34px; padding:0 16px; border:none; background:var(--gray-100); border-radius:var(--r-sm); cursor:pointer; font-size:13px; font-weight:600; color:var(--gray-500); font-family:inherit; transition:all .12s; flex-shrink:0; }
 .wfb-summary-btn.active { background:var(--blue); color:#fff; }
 
@@ -993,9 +1001,13 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
           </div>
           <div class="home-card-body" id="homeTaskList"></div>
         </div>
-        <div class="home-card">
+        <div class="home-card" id="homeCampaignAlertsCard">
           <div class="home-card-header"><span>다가오는 캠페인 일정</span><button class="btn btn-ghost btn-xs" onclick="switchTab('campaign')">캠페인 현황 →</button></div>
           <div class="home-card-body" id="homeCampaignAlerts"></div>
+        </div>
+        <div class="home-card" id="homeNoticesCard" style="display:none">
+          <div class="home-card-header"><span>공지사항</span><button class="btn btn-ghost btn-xs" onclick="openAddNoticeModal()">+ 공지 추가</button></div>
+          <div class="home-card-body" id="homeNoticesList"></div>
         </div>
       </div>
     </div>
@@ -1464,6 +1476,30 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   </div>
 </div>
 
+<!-- ── 공지사항 추가 ── -->
+<div class="modal-overlay" id="noticeModal" onclick="if(event.target===this)closeAddNoticeModal()">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">공지 추가</div>
+      <button class="modal-close" onclick="closeAddNoticeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">제목</label>
+        <input type="text" class="form-input" id="noticeTitleInput" placeholder="예) 8/18 팀회의 자료 공유" onkeydown="if(event.key==='Enter')submitAddNotice()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">내용 (선택)</label>
+        <textarea class="form-textarea" id="noticeContentInput" rows="4" placeholder="자세한 내용이 있으면 적어주세요" style="padding:10px 14px;resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddNoticeModal()">취소</button>
+      <button class="btn btn-primary" onclick="submitAddNotice()">등록</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 전체 검색 ── -->
 <div class="modal-overlay" id="searchModal" onclick="if(event.target===this)closeSearch()">
   <div class="modal search-modal">
@@ -1717,6 +1753,7 @@ let state = {
   memoFolders: [],
   contacts: [],   // 매체 컨택포인트 연락처
   accounts: [],   // 계정 정보
+  notices: [],    // 팀 공지사항 (개인별 확인 체크)
   memoUncatCollapsed: false,
   selectedMemoId: null,
   calTypeFilter: 'all',   // 'all' | 'remote'
@@ -1956,6 +1993,7 @@ function load() {
     state.contacts = ct ? JSON.parse(ct) : [];
     const ac = localStorage.getItem('cal_accounts');
     state.accounts = ac ? JSON.parse(ac) : [];
+    state.notices = []; // 공지사항은 팀 시트 전용이라 개인 데이터에는 없음
   } catch(e){}
 }
 
@@ -2214,6 +2252,7 @@ function stateFromData(data) {
   state.memoFolders = Array.isArray(data.cal_memo_folders) ? data.cal_memo_folders : [];
   state.accounts = Array.isArray(data.cal_accounts) ? data.cal_accounts : [];
   state.campaigns = Array.isArray(data.cal_campaigns) ? data.cal_campaigns : [];
+  state.notices = Array.isArray(data.cal_notices) ? data.cal_notices : [];
   state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
 }
 
@@ -2224,7 +2263,8 @@ function stateToData() {
     cal_memos: state.memos,
     cal_memo_folders: state.memoFolders,
     cal_accounts: state.accounts,
-    cal_campaigns: state.campaigns
+    cal_campaigns: state.campaigns,
+    cal_notices: state.notices
   };
 }
 
@@ -2454,7 +2494,7 @@ async function enterSilWorkspace(force) {
     localStorage.setItem('planup_team_id', SIL_ID);
     teamCanEdit = row.locked_by === authUser.id;
     teamLockName = row.locked_by_name || '';
-    state.events = []; state.tasks = []; state.memos = []; state.memoFolders = []; state.campaigns = []; state.accounts = [];
+    state.events = []; state.tasks = []; state.memos = []; state.memoFolders = []; state.campaigns = []; state.accounts = []; state.notices = [];
     state.contacts = Array.isArray(row.data && row.data.contacts) ? row.data.contacts : [];
     infoTab = 'contact';
     startTeamTimers();
@@ -4388,11 +4428,15 @@ function diffDaysBetween(a, b) {
 }
 
 function renderHome() {
+  const isTeam = workspace === 'team';
+  document.getElementById('homeCampaignAlertsCard').style.display = isTeam ? 'none' : '';
+  document.getElementById('homeNoticesCard').style.display = isTeam ? '' : 'none';
   renderHomeUrgentBanner();
   renderHomeStats();
   renderHomeToday();
   renderHomeTasks();
-  renderHomeCampaignAlerts();
+  if(isTeam) renderHomeNotices();
+  else renderHomeCampaignAlerts();
 }
 
 // 라이브 시작/종료가 오늘 기준 ±3일 이내인 "심각한" 캠페인 일정을 상단 배너로, 좌(라이브 오픈 예정)/우(라이브 종료 예정) 2단으로 보여준다
@@ -4445,6 +4489,27 @@ function shiftHomeBudgetMonth(delta) {
 function renderHomeStats() {
   const row = document.getElementById('homeStatsRow');
   if(!row) return;
+  const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
+
+  // 팀 시트에는 캠페인 데이터가 없어서 캠페인 관련 카드 3개는 항상 0으로만 뜨는 죽은 카드였다 —
+  // 그 자리 대신 할 일 카드와 "내가 아직 확인 안 한 공지" 카드만 보여준다
+  if(workspace === 'team') {
+    row.style.gridTemplateColumns = 'repeat(2,1fr)';
+    const myName = myNickname();
+    const unconfirmed = (state.notices || []).filter(n => !(n.confirmedBy || []).some(c => c.name === myName)).length;
+    row.innerHTML = `
+      <div class="home-stat-card">
+        <div class="home-stat-label">할 일</div>
+        <div class="home-stat-value">${todoCount}건</div>
+      </div>
+      <div class="home-stat-card">
+        <div class="home-stat-label">내가 확인 안 한 공지</div>
+        <div class="home-stat-value">${unconfirmed}건</div>
+      </div>`;
+    return;
+  }
+
+  row.style.gridTemplateColumns = '';
   const today = todayYMD_();
   if(!homeBudgetMonth) homeBudgetMonth = today.slice(0,7);
   const [by, bm] = homeBudgetMonth.split('-').map(Number);
@@ -4461,7 +4526,6 @@ function renderHomeStats() {
       if(ey === by && em === bm) totalBudget += Number(m.amount) || 0;
     });
   });
-  const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
 
   // 세팅이 아직 안 끝난 매체가 하나라도 있는 캠페인 수 (라이브 종료된 캠페인은 제외)
   let pendingSetupCount = 0;
@@ -4549,6 +4613,83 @@ function renderHomeCampaignAlerts() {
     item.onclick = () => switchTab('campaign');
     wrap.appendChild(item);
   });
+}
+
+// ── 공지사항 (팀 시트 전용, 개인별 확인) ──────────────────────────────
+function renderHomeNotices() {
+  const wrap = document.getElementById('homeNoticesList');
+  if(!wrap) return;
+  const myName = myNickname();
+  const list = [...(state.notices || [])].sort((a, b) => (b.createdAt||0) - (a.createdAt||0));
+  if(!list.length) { wrap.innerHTML = '<div class="home-empty">등록된 공지가 없어요</div>'; return; }
+  wrap.innerHTML = list.map(n => {
+    const confirmedBy = n.confirmedBy || [];
+    const mine = confirmedBy.some(c => c.name === myName);
+    const names = confirmedBy.map(c => escHtml(c.name)).join(', ');
+    return `
+    <div class="notice-item${mine ? ' confirmed' : ''}">
+      <div class="notice-item-top">
+        <div class="notice-item-title">${escHtml(n.title)}</div>
+        <button class="ct-icon-btn del" onclick="deleteNotice('${n.id}')" title="삭제">✕</button>
+      </div>
+      ${n.content ? `<div class="notice-item-content">${escHtml(n.content)}</div>` : ''}
+      <div class="notice-item-foot">
+        <span class="notice-item-meta">${escHtml(n.createdBy||'')} · ${n.createdAt ? new Date(n.createdAt).toLocaleDateString('ko-KR') : ''}</span>
+        <button class="btn btn-xs ${mine ? 'btn-ghost' : 'btn-primary'}" onclick="toggleNoticeConfirm('${n.id}')">${mine ? '✓ 확인함' : '확인'}</button>
+      </div>
+      ${confirmedBy.length ? `<div class="notice-item-confirmed">확인 ${confirmedBy.length}명 · ${names}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openAddNoticeModal() {
+  document.getElementById('noticeTitleInput').value = '';
+  document.getElementById('noticeContentInput').value = '';
+  openModal('noticeModal');
+  setTimeout(() => document.getElementById('noticeTitleInput').focus(), 60);
+}
+function closeAddNoticeModal() { closeModal('noticeModal'); }
+
+function submitAddNotice() {
+  const title = document.getElementById('noticeTitleInput').value.trim();
+  if(!title) { showToast('제목을 입력해주세요'); return; }
+  const content = document.getElementById('noticeContentInput').value.trim();
+  state.notices.push({
+    id: uid(), title, content,
+    createdBy: myNickname(), createdAt: Date.now(),
+    confirmedBy: []
+  });
+  save();
+  closeAddNoticeModal();
+  renderHomeNotices();
+  renderHomeStats();
+  showToast('공지를 등록했어요');
+}
+
+// 확인 체크는 팀 전체가 각자 눌러야 의미가 있는데, 팀 시트는 한 번에 한 명만 편집 가능한 잠금 구조라
+// save() 경로를 타면 편집 권한 없는 사람은 확인조차 못 누르게 된다. 그래서 이 액션만 잠금과 무관하게
+// 서버 함수(toggle_notice_confirm)로 직접 처리한다 — 지금 편집 중인 사람이 있어도 상관없이 눌린다.
+async function toggleNoticeConfirm(id) {
+  if(!currentTeamId) return;
+  const myName = myNickname();
+  try {
+    const { data, error } = await sb.rpc('toggle_notice_confirm', { p_team_id: currentTeamId, p_notice_id: id, p_name: myName });
+    if(error) throw error;
+    state.notices = Array.isArray(data) ? data : state.notices;
+    renderHomeNotices();
+    renderHomeStats();
+  } catch(e) {
+    showToast('확인 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
+}
+
+function deleteNotice(id) {
+  const n = state.notices.find(x => x.id === id);
+  if(!confirm(`"${n ? n.title : '이 공지'}"를 삭제할까요?`)) return;
+  state.notices = state.notices.filter(x => x.id !== id);
+  save();
+  renderHomeNotices();
+  renderHomeStats();
 }
 
 function renderAll() {
