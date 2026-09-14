@@ -343,19 +343,25 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .home-camp-dday { font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0; white-space:nowrap; }
 .home-camp-dday.start { background:var(--blue-light); color:var(--blue); }
 .home-camp-dday.end { background:var(--danger-bg); color:var(--red); }
-.notice-item { padding:11px 12px; border-radius:8px; background:#fff; border:1px solid var(--gray-200); display:flex; flex-direction:column; gap:6px; }
-.notice-item.confirmed { background:var(--gray-50,#fafafa); border-color:var(--gray-100); }
+/* 공지사항: 흰 카드 목록 대신, 상태별로 색이 다른 경고/안내 배너 스타일 — 파란(안내)/빨간(마감 지남)/회색(내가 확인함) */
+.home-notices-block { margin-bottom:20px; display:flex; flex-direction:column; gap:10px; }
+.home-notices-head { display:flex; align-items:center; justify-content:space-between; font-size:16px; font-weight:750; color:var(--gray-900); }
+.notice-item { padding:13px 16px; border-radius:var(--r-md); border-left:4px solid var(--blue); background:var(--blue-light); display:flex; flex-direction:column; gap:6px; }
+.notice-item.overdue { border-left-color:var(--red); background:var(--danger-bg); }
+.notice-item.confirmed { border-left-color:var(--gray-300); background:var(--gray-100); }
 .notice-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-.notice-item-title { font-size:13px; font-weight:700; color:var(--gray-900); line-height:1.35; }
-.notice-item-content { font-size:12px; color:var(--gray-600); line-height:1.5; white-space:pre-wrap; }
+.notice-item-title { font-size:14px; font-weight:700; color:var(--gray-900); line-height:1.35; }
+.notice-item.confirmed .notice-item-title { color:var(--gray-500); }
+.notice-item-content { font-size:12.5px; color:var(--gray-700); line-height:1.55; white-space:pre-wrap; }
 .notice-item-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
-.notice-item-meta { font-size:11px; color:var(--gray-400); }
-.notice-item-confirmed { font-size:11px; color:var(--gray-400); border-top:1px dashed var(--gray-200); padding-top:6px; word-break:break-all; }
-.notice-item-due { display:inline-block; font-size:11px; font-weight:700; color:var(--blue); background:var(--blue-light); border-radius:20px; padding:3px 9px; width:fit-content; }
-.notice-item-due.overdue { color:var(--red); background:var(--danger-bg); }
-.home-team-notice-banner { background:#fff; border:1.5px solid var(--blue); border-radius:var(--r-lg); padding:14px 18px; margin-bottom:16px; display:flex; flex-direction:column; gap:8px; }
-.home-team-notice-head { font-size:12px; font-weight:700; color:var(--blue); }
-.home-team-notice-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; background:var(--blue-light); border-radius:8px; }
+.notice-item-meta { font-size:11px; color:var(--gray-500); }
+.notice-item-confirmed { font-size:11px; color:var(--gray-500); border-top:1px dashed rgba(0,0,0,.08); padding-top:6px; word-break:break-all; }
+.notice-item-due { font-size:12px; font-weight:700; color:var(--blue-dark); }
+.notice-item.overdue .notice-item-due { color:var(--red); }
+.home-team-notice-banner { background:#fff; border:1.5px solid var(--gray-200); border-radius:var(--r-lg); padding:14px 18px; margin-bottom:16px; display:flex; flex-direction:column; gap:8px; }
+.home-team-notice-head { font-size:12px; font-weight:700; color:var(--gray-600); }
+.home-team-notice-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:var(--blue-light); border-radius:8px; border-left:4px solid var(--blue); }
+.home-team-notice-item.overdue { background:var(--danger-bg); border-left-color:var(--red); }
 .home-team-notice-main { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
 .home-team-notice-title { font-size:13px; font-weight:600; color:var(--gray-900); }
 .wfb-summary-btn { height:34px; padding:0 16px; border:none; background:var(--gray-100); border-radius:var(--r-sm); cursor:pointer; font-size:13px; font-weight:600; color:var(--gray-500); font-family:inherit; transition:all .12s; flex-shrink:0; }
@@ -994,14 +1000,18 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <div class="view active" id="viewHome">
     <div class="home-dash">
       <div id="homeTeamNoticeBanner" class="home-team-notice-banner" style="display:none"></div>
+      <div class="home-notices-block" id="homeNoticesCard" style="display:none">
+        <div class="home-notices-head"><span>📌 공지사항</span><button class="btn btn-ghost btn-xs" onclick="openAddNoticeModal()">+ 공지 추가</button></div>
+        <div id="homeNoticesList"></div>
+      </div>
       <div id="homeUrgentBanner" class="home-urgent-banner" style="display:none"></div>
       <div class="home-stats-row" id="homeStatsRow"></div>
-      <div class="home-dash-grid">
-        <div class="home-card">
+      <div class="home-dash-grid" id="homeDashGrid">
+        <div class="home-card" id="homeTodayCard">
           <div class="home-card-header"><span>오늘 일정</span><span class="home-card-sub" id="homeTodayDate"></span></div>
           <div class="home-card-body" id="homeTodaySchedule"></div>
         </div>
-        <div class="home-card">
+        <div class="home-card" id="homeTasksCard">
           <div class="home-card-header"><span>우선순위 업무</span><button class="btn btn-ghost btn-xs" onclick="switchTab('sheet')">업무 탭 →</button></div>
           <div class="cal-quick-add" style="padding:0 14px 10px;">
             <input type="text" id="homeQuickTaskInput" placeholder="급한 업무 빠르게 추가..." onkeydown="if(event.key==='Enter')addQuickTask('homeQuickTaskInput')">
@@ -1012,10 +1022,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <div class="home-card" id="homeCampaignAlertsCard">
           <div class="home-card-header"><span>다가오는 캠페인 일정</span><button class="btn btn-ghost btn-xs" onclick="switchTab('campaign')">캠페인 현황 →</button></div>
           <div class="home-card-body" id="homeCampaignAlerts"></div>
-        </div>
-        <div class="home-card" id="homeNoticesCard" style="display:none">
-          <div class="home-card-header"><span>공지사항</span><button class="btn btn-ghost btn-xs" onclick="openAddNoticeModal()">+ 공지 추가</button></div>
-          <div class="home-card-body" id="homeNoticesList"></div>
         </div>
       </div>
     </div>
@@ -2471,7 +2477,7 @@ function teamForceEdit() {
 // 실은 정보 탭 하나만 컨택포인트로 재사용한다. 하나의 표에 두고 매번 통째로 맞춘다.
 const WORKSPACE_TABS = {
   personal: ['home', 'cal', 'sheet', 'memo', 'campaign', 'budgetCalc'],
-  team:     ['home', 'cal', 'sheet', 'memo', 'info'],
+  team:     ['home', 'cal', 'memo', 'info'],
   sil:      ['info']
 };
 function applyWorkspaceTabs() {
@@ -4461,19 +4467,20 @@ function diffDaysBetween(a, b) {
   return Math.round((new Date(a+'T00:00:00') - new Date(b+'T00:00:00')) / 86400000);
 }
 
+// 팀 시트는 "일정 공유 · 정보 공유 · 공지사항"만 남기기로 했다 (업무/캠페인은 개인 데이터 전용) —
+// 그래서 팀 홈에서는 공지사항을 최상단에 크게 두고, 업무·캠페인 관련 카드·통계는 전부 숨긴다.
 function renderHome() {
   const isTeam = workspace === 'team';
   if(isTeam) { const b = document.getElementById('homeTeamNoticeBanner'); if(b) { b.style.display = 'none'; b.innerHTML = ''; } }
   document.getElementById('homeCampaignAlertsCard').style.display = isTeam ? 'none' : '';
-  const noticesCard = document.getElementById('homeNoticesCard');
-  noticesCard.style.display = isTeam ? '' : 'none';
-  // 공지사항은 "크게" 보이도록 그리드 한 칸이 아니라 한 줄 전체를 차지하게 + 세로로도 더 크게
-  noticesCard.style.gridColumn = isTeam ? '1 / -1' : '';
-  noticesCard.style.height = isTeam ? '620px' : '';
+  document.getElementById('homeTasksCard').style.display = isTeam ? 'none' : '';
+  document.getElementById('homeStatsRow').style.display = isTeam ? 'none' : '';
+  document.getElementById('homeDashGrid').style.gridTemplateColumns = isTeam ? '1fr' : '';
+  document.getElementById('homeNoticesCard').style.display = isTeam ? '' : 'none';
   renderHomeUrgentBanner();
-  renderHomeStats();
+  if(!isTeam) renderHomeStats();
   renderHomeToday();
-  renderHomeTasks();
+  if(!isTeam) renderHomeTasks();
   if(isTeam) renderHomeNotices();
   else renderHomeCampaignAlerts();
   if(workspace === 'personal') fetchHomeTeamNotices();
@@ -4526,24 +4533,11 @@ function shiftHomeBudgetMonth(delta) {
   renderHomeStats();
 }
 
+// 팀 시트 홈에서는 아예 호출되지 않는다 (homeStatsRow 자체를 숨김) — 개인 홈 전용
 function renderHomeStats() {
   const row = document.getElementById('homeStatsRow');
   if(!row) return;
   const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
-
-  // 팀 시트에는 캠페인 데이터가 없어서 캠페인 관련 카드 3개는 항상 0으로만 뜨는 죽은 카드였다 —
-  // 그 자리 대신 할 일 카드만 보여준다 (미확인 공지 개수는 아래 공지사항 카드 자체로 충분히 보임)
-  if(workspace === 'team') {
-    row.style.gridTemplateColumns = '1fr';
-    row.innerHTML = `
-      <div class="home-stat-card">
-        <div class="home-stat-label">할 일</div>
-        <div class="home-stat-value">${todoCount}건</div>
-      </div>`;
-    return;
-  }
-
-  row.style.gridTemplateColumns = '';
   const today = todayYMD_();
   if(!homeBudgetMonth) homeBudgetMonth = today.slice(0,7);
   const [by, bm] = homeBudgetMonth.split('-').map(Number);
@@ -4655,8 +4649,9 @@ function fmtNoticeDue(ms) {
   const d = new Date(ms);
   const overdue = ms < Date.now();
   const label = `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}까지`;
-  return `<span class="notice-item-due${overdue ? ' overdue' : ''}">⏰ ${label}${overdue ? ' · 지남' : ''}</span>`;
+  return `<span class="notice-item-due">⏰ ${label}${overdue ? ' · 지남' : ''}</span>`;
 }
+function isNoticeOverdue(n) { return !!n.dueAt && n.dueAt < Date.now(); }
 
 function renderHomeNotices() {
   const wrap = document.getElementById('homeNoticesList');
@@ -4668,8 +4663,10 @@ function renderHomeNotices() {
     const confirmedBy = n.confirmedBy || [];
     const mine = confirmedBy.some(c => c.name === myName);
     const names = confirmedBy.map(c => escHtml(c.name)).join(', ');
+    // 색 구분: 내가 확인함=회색(마무리됨), 마감이 지났는데 미확인=빨간색(경고), 그 외=파란색(안내)
+    const cls = mine ? 'confirmed' : (isNoticeOverdue(n) ? 'overdue' : '');
     return `
-    <div class="notice-item${mine ? ' confirmed' : ''}">
+    <div class="notice-item${cls ? ' ' + cls : ''}">
       <div class="notice-item-top">
         <div class="notice-item-title">${escHtml(n.title)}</div>
         <button class="ct-icon-btn del" onclick="deleteNotice('${n.id}')" title="삭제">✕</button>
@@ -4764,7 +4761,7 @@ function renderHomeTeamNoticeBanner() {
   const teamId = localStorage.getItem('cal_home_team');
   banner.innerHTML = `<div class="home-team-notice-head">📌 ${escHtml(teamName(teamId))} 공지 · 아직 확인 안 함 ${unconfirmed.length}건</div>` +
     unconfirmed.map(n => `
-      <div class="home-team-notice-item">
+      <div class="home-team-notice-item${isNoticeOverdue(n) ? ' overdue' : ''}">
         <div class="home-team-notice-main">
           <span class="home-team-notice-title">${escHtml(n.title)}</span>
           ${n.dueAt ? fmtNoticeDue(n.dueAt) : ''}
