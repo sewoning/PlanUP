@@ -2315,15 +2315,23 @@ function stateToData() {
 // 컨택포인트는 매체 담당자 목록 하나뿐이라 별도 필드(contacts)로 저장한다.
 // save_team_data()는 병합(jsonb ||) 저장이라, 여기서 안 보낸 필드(cal_notices 등)는 서버 값 그대로 남는다 —
 // 예전에 stateToData()가 필드 하나를 빼먹어서(cal_contacts) 그 데이터가 통째로 날아갔던 사고를 다시 안 겪기 위함.
+let pushTeamDataLastErrorToast = 0;
 async function pushTeamData() {
   if((workspace !== 'team' && workspace !== 'sil') || !teamCanEdit || !authUser || !currentTeamId) return;
   try {
-    await sb.rpc('save_team_data', {
+    const { error } = await sb.rpc('save_team_data', {
       p_team_id: currentTeamId,
       p_data: workspace === 'sil' ? { contacts: state.contacts } : stateToData(),
       p_name: myNickname()
     });
-  } catch(e) {}
+    if(error) throw error;
+  } catch(e) {
+    // 계속 실패해도 입력할 때마다 토스트가 반복되지 않도록 20초에 한 번만 알림
+    if(Date.now() - pushTeamDataLastErrorToast > 20000) {
+      pushTeamDataLastErrorToast = Date.now();
+      showToast('저장이 안 되고 있어요 — 새로고침 후 다시 시도해주세요');
+    }
+  }
 }
 function teamSyncRemote() {
   clearTimeout(teamPushTimer);
