@@ -5336,6 +5336,12 @@ function toggleCampaignLive(campId) {
   if(!camp) return;
   const cur = camp.liveStatus || null;
   camp.liveStatus = cur === null ? 'live' : cur === 'live' ? 'ended' : null;
+  // 상세의 매체별 세팅/라이브/라이브종료 체크가 그대로면, 나중에 매체 상태를 하나라도 건드릴 때
+  // syncCampaignLiveStatus()가 매체 기준으로 다시 계산하면서 방금 여기서 준 라이브종료가 되돌아갔다.
+  // 라이브종료로 바꿀 땐 매체별 체크도 전부 완료로 맞춰서, 이후 어떤 매체를 건드려도 되돌아가지 않게 한다.
+  if(camp.liveStatus === 'ended') {
+    (camp.mediaRows || []).forEach(m => { m.setup = 1; m.live = 1; m.liveEnd = 1; });
+  }
   save();
   renderCampaignView();
 }
