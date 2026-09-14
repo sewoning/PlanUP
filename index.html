@@ -6162,7 +6162,7 @@ function renderCampaignView() {
   // Filter area
   if(filterArea) {
     let totalMedia = 0, doneSetup = 0, doneLive = 0, doneLiveEnd = 0, doneReport = 0;
-    state.campaigns.forEach(c => c.mediaRows.forEach(m => {
+    activeCamps.forEach(c => c.mediaRows.forEach(m => {
       totalMedia++;
       if(statusVal(m.setup) >= 1) doneSetup++;
       if(statusVal(m.live) >= 1) doneLive++;
