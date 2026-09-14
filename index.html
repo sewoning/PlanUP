@@ -2190,7 +2190,7 @@ function renderProfileUI() {
 function setHomeTeam(teamId) {
   localStorage.setItem('cal_home_team', teamId || '');
   showToast(teamId ? `소속 팀을 ${teamName(teamId)}(으)로 설정했어요` : '소속 팀 설정을 껐어요');
-  fetchHomeTeamNotices();
+  fetchHomeTeamNotices(true); // 방금 바꾼 설정이라 1분 제한(스로틀) 무시하고 바로 반영
 }
 
 function toggleProfileMenu(e) {
@@ -2399,6 +2399,7 @@ async function exitTeamWorkspace() {
   state.selectedDate = todayYMD_();
   renderWorkspaceUI();
   renderAll();
+  fetchHomeTeamNotices(true); // 방금 팀 시트에서 나온 시점이라 1분 제한(스로틀) 무시하고 바로 최신 상태로
   showToast('내 데이터로 돌아왔어요');
 }
 
