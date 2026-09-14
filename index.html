@@ -2000,6 +2000,10 @@ function save() {
   localStorage.setItem('cal_campaigns', JSON.stringify(state.campaigns));
   localStorage.setItem('cal_contacts', JSON.stringify(state.contacts));
   localStorage.setItem('cal_accounts', JSON.stringify(state.accounts));
+  // 원격 저장은 디바운스(1.2초)돼 있어서, 저장 직후 바로 새로고침하면 아직 서버로 안 올라간 상태일 수 있다.
+  // 그 시각을 남겨두면 pullRemoteData()가 "방금 로컬에서 저장한 게 서버보다 최신"임을 알고
+  // 옛날 원격 데이터로 되돌리는 대신 로컬 내용을 마저 밀어올린다.
+  localStorage.setItem('cal_last_local_save', new Date().toISOString());
   syncRemote();
 }
 function load() {
@@ -2112,6 +2116,14 @@ async function pullRemoteData() {
   try {
     const { data, error } = await sb.from('user_data').select('data, updated_at').eq('id', authUser.id).maybeSingle();
     if(error || !data || !data.data) return;
+    // 저장하자마자(디바운스 완료 전) 새로고침한 경우, 로컬이 방금 저장한 최신본이고 서버는 아직 옛날 값이다.
+    // 이럴 때 그대로 덮어쓰면 방금 한 수정이 되돌아가 보인다 — 로컬이 더 최신이면 덮어쓰지 않고 대신 밀어올린다.
+    const localSavedAt = localStorage.getItem('cal_last_local_save');
+    if(localSavedAt && data.updated_at && localSavedAt > data.updated_at) {
+      lastKnownRemoteAt = data.updated_at || null;
+      pushRemoteData();
+      return;
+    }
     lastKnownRemoteAt = data.updated_at || null;
     SYNC_KEYS.forEach(k => { if(data.data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data.data[k])); });
   } catch(e) {}
