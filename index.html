@@ -351,6 +351,13 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .notice-item-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px; }
 .notice-item-meta { font-size:11px; color:var(--gray-400); }
 .notice-item-confirmed { font-size:11px; color:var(--gray-400); border-top:1px dashed var(--gray-200); padding-top:6px; word-break:break-all; }
+.notice-item-due { display:inline-block; font-size:11px; font-weight:700; color:var(--blue); background:var(--blue-light); border-radius:20px; padding:3px 9px; width:fit-content; }
+.notice-item-due.overdue { color:var(--red); background:var(--danger-bg); }
+.home-team-notice-banner { background:#fff; border:1.5px solid var(--blue); border-radius:var(--r-lg); padding:14px 18px; margin-bottom:16px; display:flex; flex-direction:column; gap:8px; }
+.home-team-notice-head { font-size:12px; font-weight:700; color:var(--blue); }
+.home-team-notice-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; background:var(--blue-light); border-radius:8px; }
+.home-team-notice-main { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+.home-team-notice-title { font-size:13px; font-weight:600; color:var(--gray-900); }
 .wfb-summary-btn { height:34px; padding:0 16px; border:none; background:var(--gray-100); border-radius:var(--r-sm); cursor:pointer; font-size:13px; font-weight:600; color:var(--gray-500); font-family:inherit; transition:all .12s; flex-shrink:0; }
 .wfb-summary-btn.active { background:var(--blue); color:#fff; }
 
@@ -986,6 +993,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <!-- ═══ HOME (DASHBOARD) VIEW ═══ -->
   <div class="view active" id="viewHome">
     <div class="home-dash">
+      <div id="homeTeamNoticeBanner" class="home-team-notice-banner" style="display:none"></div>
       <div id="homeUrgentBanner" class="home-urgent-banner" style="display:none"></div>
       <div class="home-stats-row" id="homeStatsRow"></div>
       <div class="home-dash-grid">
@@ -1428,6 +1436,13 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <div style="font-size:11px;color:var(--gray-400);margin-top:5px;">로그인에 쓰이는 닉네임이라 여기서는 바꿀 수 없어요</div>
       </div>
       <div class="form-group">
+        <label class="form-label">소속 팀</label>
+        <select class="form-select" id="profileHomeTeamSelect" onchange="setHomeTeam(this.value)">
+          <option value="">선택 안 함</option>
+        </select>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:5px;">정해두면 소속 팀의 팀 시트에 새 공지가 올라올 때 내 개인 홈 화면 상단에도 뜨고, 팀 시트에 안 들어가도 바로 확인할 수 있어요.</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">비밀번호 변경</label>
         <div style="font-size:11px;color:var(--gray-400);margin-bottom:8px;">보안을 위해 지금 비밀번호는 화면에 보여드릴 수 없어요. 새 비밀번호로 바꾸는 것만 가능해요.</div>
         <input class="form-input" type="password" id="profileNewPw" placeholder="새 비밀번호 (6자 이상)" style="margin-bottom:8px;">
@@ -1491,6 +1506,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
       <div class="form-group">
         <label class="form-label">내용 (선택)</label>
         <textarea class="form-textarea" id="noticeContentInput" rows="4" placeholder="자세한 내용이 있으면 적어주세요" style="padding:10px 14px;resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">해야 하는 일자/시간 (선택)</label>
+        <input type="datetime-local" class="form-input" id="noticeDueInput">
       </div>
     </div>
     <div class="modal-footer">
@@ -1998,7 +2017,7 @@ function load() {
 }
 
 // ── Auth & 원격 동기화 (Supabase) ─────────────────────────────────
-const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts', 'cal_avatar'];
+const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts', 'cal_avatar', 'cal_home_team'];
 let authMode = 'login'; // 'login' | 'signup'
 
 // 닉네임은 실제 이메일이 아니라, Supabase Auth가 요구하는 이메일 형식으로 변환해서만 내부적으로 사용 (실제 메일 발송 없음)
@@ -2151,6 +2170,21 @@ function renderProfileUI() {
   if(nickInput) nickInput.value = myNickname();
   const removeBtn = document.getElementById('avatarRemoveBtn');
   if(removeBtn) removeBtn.style.display = av ? '' : 'none';
+  const teamSel = document.getElementById('profileHomeTeamSelect');
+  if(teamSel && !teamSel.dataset.filled) {
+    teamSel.innerHTML = '<option value="">선택 안 함</option>' + TEAMS.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+    teamSel.dataset.filled = '1';
+  }
+  if(teamSel) teamSel.value = localStorage.getItem('cal_home_team') || '';
+}
+
+// 개인 홈 화면 상단에 어느 팀의 공지를 띄울지 — 팀은 비밀번호로만 들어가는 구조라 계정에 "소속 팀" 정보가
+// 따로 없어서, 프로필에서 본인이 직접 골라두게 한다. 팀 데이터 읽기 자체는 RLS상 로그인만 하면 누구나
+// 가능해서(팀 비밀번호는 앱의 편집 UX 게이트일 뿐 진짜 보안 경계가 아님), 팀 시트에 안 들어가도 조회 가능.
+function setHomeTeam(teamId) {
+  localStorage.setItem('cal_home_team', teamId || '');
+  showToast(teamId ? `소속 팀을 ${teamName(teamId)}(으)로 설정했어요` : '소속 팀 설정을 껐어요');
+  fetchHomeTeamNotices();
 }
 
 function toggleProfileMenu(e) {
@@ -4429,14 +4463,20 @@ function diffDaysBetween(a, b) {
 
 function renderHome() {
   const isTeam = workspace === 'team';
+  if(isTeam) { const b = document.getElementById('homeTeamNoticeBanner'); if(b) { b.style.display = 'none'; b.innerHTML = ''; } }
   document.getElementById('homeCampaignAlertsCard').style.display = isTeam ? 'none' : '';
-  document.getElementById('homeNoticesCard').style.display = isTeam ? '' : 'none';
+  const noticesCard = document.getElementById('homeNoticesCard');
+  noticesCard.style.display = isTeam ? '' : 'none';
+  // 공지사항은 "크게" 보이도록 그리드 한 칸이 아니라 한 줄 전체를 차지하게 + 세로로도 더 크게
+  noticesCard.style.gridColumn = isTeam ? '1 / -1' : '';
+  noticesCard.style.height = isTeam ? '620px' : '';
   renderHomeUrgentBanner();
   renderHomeStats();
   renderHomeToday();
   renderHomeTasks();
   if(isTeam) renderHomeNotices();
   else renderHomeCampaignAlerts();
+  if(workspace === 'personal') fetchHomeTeamNotices();
 }
 
 // 라이브 시작/종료가 오늘 기준 ±3일 이내인 "심각한" 캠페인 일정을 상단 배너로, 좌(라이브 오픈 예정)/우(라이브 종료 예정) 2단으로 보여준다
@@ -4492,19 +4532,13 @@ function renderHomeStats() {
   const todoCount = state.tasks.filter(t=>t && (t.status==='todo'||t.status==='inprogress')).length;
 
   // 팀 시트에는 캠페인 데이터가 없어서 캠페인 관련 카드 3개는 항상 0으로만 뜨는 죽은 카드였다 —
-  // 그 자리 대신 할 일 카드와 "내가 아직 확인 안 한 공지" 카드만 보여준다
+  // 그 자리 대신 할 일 카드만 보여준다 (미확인 공지 개수는 아래 공지사항 카드 자체로 충분히 보임)
   if(workspace === 'team') {
-    row.style.gridTemplateColumns = 'repeat(2,1fr)';
-    const myName = myNickname();
-    const unconfirmed = (state.notices || []).filter(n => !(n.confirmedBy || []).some(c => c.name === myName)).length;
+    row.style.gridTemplateColumns = '1fr';
     row.innerHTML = `
       <div class="home-stat-card">
         <div class="home-stat-label">할 일</div>
         <div class="home-stat-value">${todoCount}건</div>
-      </div>
-      <div class="home-stat-card">
-        <div class="home-stat-label">내가 확인 안 한 공지</div>
-        <div class="home-stat-value">${unconfirmed}건</div>
       </div>`;
     return;
   }
@@ -4616,6 +4650,14 @@ function renderHomeCampaignAlerts() {
 }
 
 // ── 공지사항 (팀 시트 전용, 개인별 확인) ──────────────────────────────
+// 마감 일자/시간(dueAt)은 <input type=datetime-local> 값을 그대로 epoch ms로 저장한다 (선택 항목, 없으면 null)
+function fmtNoticeDue(ms) {
+  const d = new Date(ms);
+  const overdue = ms < Date.now();
+  const label = `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]}) ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}까지`;
+  return `<span class="notice-item-due${overdue ? ' overdue' : ''}">⏰ ${label}${overdue ? ' · 지남' : ''}</span>`;
+}
+
 function renderHomeNotices() {
   const wrap = document.getElementById('homeNoticesList');
   if(!wrap) return;
@@ -4632,6 +4674,7 @@ function renderHomeNotices() {
         <div class="notice-item-title">${escHtml(n.title)}</div>
         <button class="ct-icon-btn del" onclick="deleteNotice('${n.id}')" title="삭제">✕</button>
       </div>
+      ${n.dueAt ? fmtNoticeDue(n.dueAt) : ''}
       ${n.content ? `<div class="notice-item-content">${escHtml(n.content)}</div>` : ''}
       <div class="notice-item-foot">
         <span class="notice-item-meta">${escHtml(n.createdBy||'')} · ${n.createdAt ? new Date(n.createdAt).toLocaleDateString('ko-KR') : ''}</span>
@@ -4645,6 +4688,7 @@ function renderHomeNotices() {
 function openAddNoticeModal() {
   document.getElementById('noticeTitleInput').value = '';
   document.getElementById('noticeContentInput').value = '';
+  document.getElementById('noticeDueInput').value = '';
   openModal('noticeModal');
   setTimeout(() => document.getElementById('noticeTitleInput').focus(), 60);
 }
@@ -4654,15 +4698,16 @@ function submitAddNotice() {
   const title = document.getElementById('noticeTitleInput').value.trim();
   if(!title) { showToast('제목을 입력해주세요'); return; }
   const content = document.getElementById('noticeContentInput').value.trim();
+  const dueRaw = document.getElementById('noticeDueInput').value;
+  const dueAt = dueRaw ? new Date(dueRaw).getTime() : null;
   state.notices.push({
-    id: uid(), title, content,
+    id: uid(), title, content, dueAt,
     createdBy: myNickname(), createdAt: Date.now(),
     confirmedBy: []
   });
   save();
   closeAddNoticeModal();
   renderHomeNotices();
-  renderHomeStats();
   showToast('공지를 등록했어요');
 }
 
@@ -4677,7 +4722,6 @@ async function toggleNoticeConfirm(id) {
     if(error) throw error;
     state.notices = Array.isArray(data) ? data : state.notices;
     renderHomeNotices();
-    renderHomeStats();
   } catch(e) {
     showToast('확인 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
   }
@@ -4689,7 +4733,57 @@ function deleteNotice(id) {
   state.notices = state.notices.filter(x => x.id !== id);
   save();
   renderHomeNotices();
-  renderHomeStats();
+}
+
+// ── 개인 홈 최상단 — 소속 팀의 미확인 공지 배너 ──────────────────────
+// 팀 시트에 안 들어가도, 프로필에서 정해둔 소속 팀의 공지를 읽기 전용으로 가져와서 보여준다.
+// shared_data는 select 정책이 로그인만 하면 누구나 열람 가능이라(팀 비밀번호는 편집 UX 게이트일 뿐),
+// 팀 워크스페이스에 진입하지 않고도 조회할 수 있다 — 잠금/편집 권한과 전혀 무관.
+let homeTeamNotices = [];
+let homeTeamNoticesLastFetch = 0;
+
+async function fetchHomeTeamNotices(force) {
+  const teamId = localStorage.getItem('cal_home_team');
+  if(!teamId) { homeTeamNotices = []; renderHomeTeamNoticeBanner(); return; }
+  if(!force && Date.now() - homeTeamNoticesLastFetch < 60000) return; // 너무 자주 조회하지 않도록 1분에 한 번으로 제한
+  homeTeamNoticesLastFetch = Date.now();
+  try {
+    const { data } = await sb.from('shared_data').select('data').eq('id', teamId).maybeSingle();
+    homeTeamNotices = (data && data.data && Array.isArray(data.data.cal_notices)) ? data.data.cal_notices : [];
+  } catch(e) { homeTeamNotices = []; }
+  renderHomeTeamNoticeBanner();
+}
+
+function renderHomeTeamNoticeBanner() {
+  const banner = document.getElementById('homeTeamNoticeBanner');
+  if(!banner) return;
+  const myName = myNickname();
+  const unconfirmed = homeTeamNotices.filter(n => !(n.confirmedBy || []).some(c => c.name === myName));
+  if(!unconfirmed.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  banner.style.display = '';
+  const teamId = localStorage.getItem('cal_home_team');
+  banner.innerHTML = `<div class="home-team-notice-head">📌 ${escHtml(teamName(teamId))} 공지 · 아직 확인 안 함 ${unconfirmed.length}건</div>` +
+    unconfirmed.map(n => `
+      <div class="home-team-notice-item">
+        <div class="home-team-notice-main">
+          <span class="home-team-notice-title">${escHtml(n.title)}</span>
+          ${n.dueAt ? fmtNoticeDue(n.dueAt) : ''}
+        </div>
+        <button class="btn btn-xs btn-primary" onclick="confirmHomeTeamNotice('${n.id}')">확인</button>
+      </div>`).join('');
+}
+
+async function confirmHomeTeamNotice(id) {
+  const teamId = localStorage.getItem('cal_home_team');
+  if(!teamId) return;
+  try {
+    const { data, error } = await sb.rpc('toggle_notice_confirm', { p_team_id: teamId, p_notice_id: id, p_name: myNickname() });
+    if(error) throw error;
+    homeTeamNotices = Array.isArray(data) ? data : homeTeamNotices;
+    renderHomeTeamNoticeBanner();
+  } catch(e) {
+    showToast('확인 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
 }
 
 function renderAll() {
