@@ -2296,6 +2296,9 @@ function stateFromData(data) {
   state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
 }
 
+// cal_notices는 여기 일부러 안 넣는다 — 공지사항은 add_notice/delete_notice/toggle_notice_confirm
+// 전용 함수로만 쓰고, 이 일반 저장 경로를 아예 안 탄다. 잠금 가진 사람의 오래된 로컬 공지 목록이
+// 다른 사람이 방금 확인/추가/삭제한 공지를 덮어쓰는 사고를 원천적으로 막기 위함.
 function stateToData() {
   return {
     cal_events: state.events,
@@ -2303,23 +2306,23 @@ function stateToData() {
     cal_memos: state.memos,
     cal_memo_folders: state.memoFolders,
     cal_accounts: state.accounts,
-    cal_campaigns: state.campaigns,
-    cal_notices: state.notices
+    cal_campaigns: state.campaigns
   };
 }
 
 // 공유 시트 저장 (편집 권한이 있을 때만, 잠금을 뺏겼으면 조건절에서 걸러짐)
-// 팀 시트와 컨택포인트(실)는 같은 잠금 구조를 쓰지만 담는 데이터 모양이 다르다 — 팀은 캘린더/업무/메모/계정/캠페인 전체,
+// 팀 시트와 컨택포인트(실)는 같은 잠금 구조를 쓰지만 담는 데이터 모양이 다르다 — 팀은 캘린더/업무/메모/계정/캠페인,
 // 컨택포인트는 매체 담당자 목록 하나뿐이라 별도 필드(contacts)로 저장한다.
+// save_team_data()는 병합(jsonb ||) 저장이라, 여기서 안 보낸 필드(cal_notices 등)는 서버 값 그대로 남는다 —
+// 예전에 stateToData()가 필드 하나를 빼먹어서(cal_contacts) 그 데이터가 통째로 날아갔던 사고를 다시 안 겪기 위함.
 async function pushTeamData() {
   if((workspace !== 'team' && workspace !== 'sil') || !teamCanEdit || !authUser || !currentTeamId) return;
   try {
-    await sb.from('shared_data').update({
-      data: workspace === 'sil' ? { contacts: state.contacts } : stateToData(),
-      updated_at: new Date().toISOString(),
-      updated_by_name: myNickname(),
-      locked_at: new Date().toISOString()
-    }).eq('id', currentTeamId).eq('locked_by', authUser.id);
+    await sb.rpc('save_team_data', {
+      p_team_id: currentTeamId,
+      p_data: workspace === 'sil' ? { contacts: state.contacts } : stateToData(),
+      p_name: myNickname()
+    });
   } catch(e) {}
 }
 function teamSyncRemote() {
@@ -4664,7 +4667,7 @@ function renderHomeNotices() {
     const confirmedBy = n.confirmedBy || [];
     const mine = confirmedBy.some(c => c.name === myName);
     const names = confirmedBy.map(c => escHtml(c.name)).join(', ');
-    // 색 구분: 내가 확인함=회색(마무리됨), 마감이 지났는데 미확인=빨간색(경고), 그 외=파란색(안내)
+    // 색 구분: 내가 완료함=회색(마무리됨), 마감이 지났는데 미완료=빨간색(경고), 그 외=파란색(안내)
     const cls = mine ? 'confirmed' : (isNoticeOverdue(n) ? 'overdue' : '');
     return `
     <div class="notice-item${cls ? ' ' + cls : ''}">
@@ -4676,9 +4679,9 @@ function renderHomeNotices() {
       ${n.content ? `<div class="notice-item-content">${escHtml(n.content)}</div>` : ''}
       <div class="notice-item-foot">
         <span class="notice-item-meta">${escHtml(n.createdBy||'')} · ${n.createdAt ? new Date(n.createdAt).toLocaleDateString('ko-KR') : ''}</span>
-        <button class="btn btn-xs ${mine ? 'btn-ghost' : 'btn-primary'}" onclick="toggleNoticeConfirm('${n.id}')">${mine ? '✓ 확인함' : '확인'}</button>
+        <button class="btn btn-xs ${mine ? 'btn-ghost' : 'btn-primary'}" onclick="toggleNoticeConfirm('${n.id}')">${mine ? '✓ 완료함' : '완료'}</button>
       </div>
-      ${confirmedBy.length ? `<div class="notice-item-confirmed">확인 ${confirmedBy.length}명 · ${names}</div>` : ''}
+      ${confirmedBy.length ? `<div class="notice-item-confirmed">완료 ${confirmedBy.length}명 · ${names}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -4692,26 +4695,29 @@ function openAddNoticeModal() {
 }
 function closeAddNoticeModal() { closeModal('noticeModal'); }
 
-function submitAddNotice() {
+// 공지 추가/삭제/완료 체크는 셋 다 잠금(편집 권한)과 완전히 무관하게 전용 서버 함수로만 처리한다.
+// 일반 저장 경로(save→pushTeamData)를 한 번이라도 타면, 누군가 팀 시트를 편집 중일 때 그 사람의
+// 오래된 로컬 공지 목록이 방금 벌어진 변경을 덮어쓸 수 있어서 아예 그 경로 자체를 안 쓴다.
+async function submitAddNotice() {
   const title = document.getElementById('noticeTitleInput').value.trim();
   if(!title) { showToast('제목을 입력해주세요'); return; }
+  if(!currentTeamId) return;
   const content = document.getElementById('noticeContentInput').value.trim();
   const dueRaw = document.getElementById('noticeDueInput').value;
   const dueAt = dueRaw ? new Date(dueRaw).getTime() : null;
-  state.notices.push({
-    id: uid(), title, content, dueAt,
-    createdBy: myNickname(), createdAt: Date.now(),
-    confirmedBy: []
-  });
-  save();
-  closeAddNoticeModal();
-  renderHomeNotices();
-  showToast('공지를 등록했어요');
+  const notice = { id: uid(), title, content, dueAt, createdBy: myNickname(), createdAt: Date.now(), confirmedBy: [] };
+  try {
+    const { data, error } = await sb.rpc('add_notice', { p_team_id: currentTeamId, p_notice: notice });
+    if(error) throw error;
+    state.notices = Array.isArray(data) ? data : state.notices;
+    closeAddNoticeModal();
+    renderHomeNotices();
+    showToast('공지를 등록했어요');
+  } catch(e) {
+    showToast('공지 등록 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
 }
 
-// 확인 체크는 팀 전체가 각자 눌러야 의미가 있는데, 팀 시트는 한 번에 한 명만 편집 가능한 잠금 구조라
-// save() 경로를 타면 편집 권한 없는 사람은 확인조차 못 누르게 된다. 그래서 이 액션만 잠금과 무관하게
-// 서버 함수(toggle_notice_confirm)로 직접 처리한다 — 지금 편집 중인 사람이 있어도 상관없이 눌린다.
 async function toggleNoticeConfirm(id) {
   if(!currentTeamId) return;
   const myName = myNickname();
@@ -4721,16 +4727,22 @@ async function toggleNoticeConfirm(id) {
     state.notices = Array.isArray(data) ? data : state.notices;
     renderHomeNotices();
   } catch(e) {
-    showToast('확인 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+    showToast('완료 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
   }
 }
 
-function deleteNotice(id) {
+async function deleteNotice(id) {
   const n = state.notices.find(x => x.id === id);
   if(!confirm(`"${n ? n.title : '이 공지'}"를 삭제할까요?`)) return;
-  state.notices = state.notices.filter(x => x.id !== id);
-  save();
-  renderHomeNotices();
+  if(!currentTeamId) return;
+  try {
+    const { data, error } = await sb.rpc('delete_notice', { p_team_id: currentTeamId, p_notice_id: id, p_name: myNickname() });
+    if(error) throw error;
+    state.notices = Array.isArray(data) ? data : state.notices;
+    renderHomeNotices();
+  } catch(e) {
+    showToast('공지 삭제 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
 }
 
 // ── 개인 홈 최상단 — 소속 팀의 미확인 공지 배너 ──────────────────────
@@ -4760,14 +4772,14 @@ function renderHomeTeamNoticeBanner() {
   if(!unconfirmed.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
   banner.style.display = '';
   const teamId = localStorage.getItem('cal_home_team');
-  banner.innerHTML = `<div class="home-team-notice-head">📌 ${escHtml(teamName(teamId))} 공지 · 아직 확인 안 함 ${unconfirmed.length}건</div>` +
+  banner.innerHTML = `<div class="home-team-notice-head">📌 ${escHtml(teamName(teamId))} 공지 · 아직 완료 안 함 ${unconfirmed.length}건</div>` +
     unconfirmed.map(n => `
       <div class="home-team-notice-item${isNoticeOverdue(n) ? ' overdue' : ''}">
         <div class="home-team-notice-main">
           <span class="home-team-notice-title">${escHtml(n.title)}</span>
           ${n.dueAt ? fmtNoticeDue(n.dueAt) : ''}
         </div>
-        <button class="btn btn-xs btn-primary" onclick="confirmHomeTeamNotice('${n.id}')">확인</button>
+        <button class="btn btn-xs btn-primary" onclick="confirmHomeTeamNotice('${n.id}')">완료</button>
       </div>`).join('');
 }
 
@@ -4780,7 +4792,7 @@ async function confirmHomeTeamNotice(id) {
     homeTeamNotices = Array.isArray(data) ? data : homeTeamNotices;
     renderHomeTeamNoticeBanner();
   } catch(e) {
-    showToast('확인 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
+    showToast('완료 처리 중 오류: ' + ((e && e.message) || '알 수 없는 오류'));
   }
 }
 
