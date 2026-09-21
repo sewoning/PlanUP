@@ -393,7 +393,69 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
   .toast-wrap{bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px)}
 }
 @media(max-width:640px){ .header{padding:0 14px} .header-logo span{display:none} .tab-btn span{display:none} .main{padding:12px} #calMonthGrid{padding:8px 6px 12px} .day-cell{min-height:52px;padding:3px} .day-num{font-size:12px;width:22px;height:22px} .event-chip{display:none} .day-cell.has-events::after{content:'';display:block;width:5px;height:5px;background:var(--blue);border-radius:50%;margin:2px auto 0} .form-row{grid-template-columns:1fr} .sidebar{flex-direction:column} .modal{border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:95vh} .modal-overlay{align-items:flex-end;padding:0} .cal-title-text{font-size:15px} .week-header-grid,.week-allday-row,.week-body-grid{grid-template-columns:40px repeat(7,1fr)} }
-@media(max-width:480px){ .home-stats-row{grid-template-columns:1fr} .home-stat-value{font-size:19px} .home-card{height:320px} .home-urgent-col{padding:12px 14px} }
+@media(max-width:480px){ .home-stats-row{grid-template-columns:1fr} .home-stat-value{font-size:19px} .home-urgent-col{padding:12px 14px} }
+
+/* ── 모바일 최적화 (휴대폰으로 보는 사람이 많아서 따로 정리) ── */
+@media(max-width:700px){
+  /* iOS는 폰트가 16px보다 작은 입력창을 탭하면 화면을 확대해버린다 — 입력칸만 16px로 올려서 막는다 */
+  .form-input, .form-select, .form-textarea, .info-input, .ct-input, .search-input,
+  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="password"], textarea, select { font-size:16px; }
+
+  /* 하단 탭: 탭 수가 줄어든 만큼 터치 영역을 넉넉하게 + 현재 탭 표시를 확실히 */
+  .bottom-nav{ padding-top:2px; }
+  .bottom-tab-btn{ padding:9px 2px 8px; min-height:52px; position:relative; }
+  .bottom-tab-btn span{ font-size:11px; }
+  .bottom-tab-btn.active::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:28px; height:3px; border-radius:0 0 3px 3px; background:var(--blue); }
+  .main{ padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .toast-wrap{ bottom:calc(72px + env(safe-area-inset-bottom, 0px) + 12px); }
+
+  /* 홈: 고정 높이를 풀어서 내용만큼만 차지하게 (폰에서 빈 카드가 화면을 잡아먹던 문제) */
+  .home-card{ height:auto; max-height:none; }
+  .home-card-body{ max-height:380px; }
+  .home-dash{ gap:14px; }
+  .home-notices-head{ font-size:15px; }
+  .home-stat-card{ padding:14px 16px; }
+  .home-stat-value{ font-size:20px; }
+
+  /* 캠페인 현황: 가로 스크롤은 유지하되(표라서), 글자·여백을 줄여 한 화면에 더 들어오게 */
+  .ct-table{ font-size:12px; }
+  .ct-table th, .ct-table td{ padding:6px 8px; }
+  .ct-status-btn{ font-size:11px; padding:0 8px; height:26px; }
+  .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
+}
+
+/* 컨택포인트/계정 표: 폰에서는 가로 스크롤 대신 카드처럼 세로로 쌓는다 (실 전체가 폰으로 많이 봐서) */
+@media(max-width:640px){
+  .info-table-wrap{ overflow-x:visible; border:none; }
+  .info-table{ min-width:0; }
+  .info-table thead{ display:none; }
+  .info-table tbody, .info-table tr, .info-table td{ display:block; width:100%; }
+  .info-row{ background:#fff; border:1px solid var(--gray-200); border-radius:var(--r-md); margin-bottom:8px; padding:10px 12px 8px; position:relative; }
+  .info-row td{ border:none; padding:3px 0; display:flex; align-items:center; gap:8px; }
+  .info-row td::before{ content:attr(data-label); flex:0 0 58px; font-size:11px; font-weight:600; color:var(--gray-400); }
+  .info-row td .info-input, .info-row td .info-secret{ flex:1; min-width:0; }
+  .info-row td:empty{ display:none; }
+  .info-row .info-del-cell{ position:absolute; top:6px; right:8px; padding:0; width:auto; }
+  .info-row .info-del-cell::before{ content:none; }
+  .info-group-row{ display:block; margin:14px 0 6px; }
+  .info-group-row>td{ display:block; border:none; padding:0; background:transparent; }
+  .info-group-row>td:empty{ display:none; }
+  .info-group-inner{ flex-wrap:wrap; gap:6px; }
+  .info-group-mail-input{ width:100%; margin-top:6px; }
+}
+
+/* 아주 좁은 폰(구형/미니 모델) — 여백과 글자를 한 단계 더 줄인다 */
+@media(max-width:380px){
+  .main{ padding:10px; }
+  .header{ padding:0 10px; }
+  .bottom-tab-btn span{ font-size:10px; }
+  .home-stat-value{ font-size:18px; }
+  .home-card-header{ padding:13px 15px; font-size:13px; }
+  .home-card-body{ padding:11px 13px; }
+  .notice-item{ padding:11px 13px; }
+  .notice-item-title{ font-size:13px; }
+  .modal-header, .modal-body, .modal-footer{ padding-left:16px; padding-right:16px; }
+}
 /* 터치 기기는 hover가 없어서 hover로만 보이던 액션 버튼들(완료/삭제/수정 등)이 영영 안 보이는 문제를 막음 */
 @media (hover: none) {
   .event-item-actions, .kanban-card-actions, .ct-row-acts, .memo-folder-acts { opacity: 1; }
@@ -413,14 +475,6 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 
 /* ── Campaign View ── */
 .campaign-view{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;}
-.budget-calc-view{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;max-width:480px;}
-.budget-calc-card{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:24px;display:flex;flex-direction:column;gap:18px;}
-.budget-calc-result{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:20px 24px;display:flex;flex-direction:column;gap:10px;}
-.bc-result-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--gray-600);}
-.bc-result-row b{font-size:14px;color:var(--gray-900);font-weight:700;}
-.bc-result-main{padding-top:10px;border-top:1px solid var(--gray-100);}
-.bc-result-main span{font-size:14px;font-weight:600;color:var(--gray-700);}
-.bc-result-main b{font-size:22px;color:var(--blue-dark);}
 .campaign-topbar{background:#fff;border-radius:var(--r-lg);padding:14px 20px;box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
 .campaign-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .cst-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
@@ -902,10 +956,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>캠페인 현황</span>
       </button>
-      <button class="tab-btn" id="tabBudgetCalc" data-tab="budgetCalc" onclick="switchTab('budgetCalc')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/><line x1="8" y1="19" x2="16" y2="19"/></svg>
-        <span>일예산 계산기</span>
-      </button>
       <button class="tab-btn" id="tabInfo" data-tab="info" onclick="switchTab('info')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span>정보</span>
@@ -981,10 +1031,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <button class="bottom-tab-btn" data-tab="campaign" onclick="switchTab('campaign')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     <span>캠페인</span>
-  </button>
-  <button class="bottom-tab-btn" data-tab="budgetCalc" onclick="switchTab('budgetCalc')">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/><line x1="8" y1="19" x2="16" y2="19"/></svg>
-    <span>일예산</span>
   </button>
   <button class="bottom-tab-btn" data-tab="info" onclick="switchTab('info')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -1293,45 +1339,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
     </div>
   </div>
 
-  <!-- ═══ BUDGET CALCULATOR VIEW ═══ -->
-  <div class="view" id="viewBudgetCalc">
-    <div class="budget-calc-view">
-      <div class="budget-calc-card">
-        <div class="form-group">
-          <label class="form-label">총예산 <span style="color:var(--gray-400);font-weight:500">(VAT 미포함)</span></label>
-          <input class="form-input" id="bcAmount" type="number" min="0" step="1000" placeholder="예) 3000000" oninput="bcUpdate('amount', this.value)">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">시작일</label>
-            <input class="form-input" id="bcStart" type="date" onchange="bcUpdate('startDate', this.value)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">종료일</label>
-            <input class="form-input" id="bcEnd" type="date" onchange="bcUpdate('endDate', this.value)">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">계산 기준</label>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div class="ct-budget-mode-group" id="bcModeGroup" style="gap:6px">
-              <button class="ct-budget-mode-btn" data-mode="exclude_vat" onclick="bcSetMode('exclude_vat')" style="height:32px;font-size:12px;padding:0 14px">VAT 미포함</button>
-              <button class="ct-budget-mode-btn" data-mode="include_vat" onclick="bcSetMode('include_vat')" style="height:32px;font-size:12px;padding:0 14px">VAT 포함</button>
-              <button class="ct-budget-mode-btn" data-mode="exclude_markup" onclick="bcSetMode('exclude_markup')" style="height:32px;font-size:12px;padding:0 14px">마크업 제외</button>
-            </div>
-            <span class="ct-markup-inline" id="bcMarkupWrap" style="display:none">
-              마크업<input type="number" class="ct-markup-input" id="bcMarkupRate" min="0" max="100" onchange="bcUpdate('markupRate', this.value)">%
-            </span>
-          </div>
-        </div>
-      </div>
-      <div class="budget-calc-result">
-        <div class="bc-result-row"><span>집행일수</span><b id="bcDays">-</b></div>
-        <div class="bc-result-row"><span>계산 기준금액</span><b id="bcBase">-</b></div>
-        <div class="bc-result-row bc-result-main"><span>일예산</span><b id="bcDaily">-</b></div>
-      </div>
-    </div>
-  </div>
+
 
   <!-- ═══ 정보 (매체 컨택포인트 / 계정) ═══ -->
   <div class="view" id="viewInfo">
@@ -2500,7 +2508,7 @@ function teamForceEdit() {
 // 화면 구성이 워크스페이스마다 완전히 다르다: 개인은 보통 탭 전부, 팀은 캠페인/예산계산기 대신 정보(계정),
 // 실은 정보 탭 하나만 컨택포인트로 재사용한다. 하나의 표에 두고 매번 통째로 맞춘다.
 const WORKSPACE_TABS = {
-  personal: ['home', 'cal', 'sheet', 'memo', 'campaign', 'budgetCalc'],
+  personal: ['home', 'cal', 'sheet', 'memo', 'campaign'],
   team:     ['home', 'cal', 'memo', 'info'],
   sil:      ['info']
 };
@@ -2877,8 +2885,8 @@ function renderInfoView() {
       </tr>
       ${g.items.map(r => `
         <tr class="info-row" data-row-id="${r.id}">
-          ${personCols.map(c => `<td>${cellHtml(r, c)}</td>`).join('')}
-          <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="이 담당자 삭제">✕</button></td>
+          ${personCols.map(c => `<td data-label="${escHtml(c.h)}">${cellHtml(r, c)}</td>`).join('')}
+          <td class="info-del-cell"><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="이 담당자 삭제">✕</button></td>
         </tr>`).join('')}
     `;
     }).join('');
@@ -2890,8 +2898,8 @@ function renderInfoView() {
     `<tr>${sheet.cols.map(c => `<th style="width:${c.w}">${c.h}</th>`).join('')}<th style="width:44px"></th></tr>`;
   document.getElementById('infoTbody').innerHTML = rows.map(r => `
     <tr class="info-row" data-row-id="${r.id}">
-      ${sheet.cols.map(c => `<td>${cellHtml(r, c)}</td>`).join('')}
-      <td><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="삭제">✕</button></td>
+      ${sheet.cols.map(c => `<td data-label="${escHtml(c.h)}">${cellHtml(r, c)}</td>`).join('')}
+      <td class="info-del-cell"><button class="ct-icon-btn del" onclick="deleteInfoRow('${r.id}')" title="삭제">✕</button></td>
     </tr>`).join('');
   if(q && rows.length < total) { /* 필터 중 안내는 검색창 자체로 충분 */ }
 }
@@ -3134,7 +3142,7 @@ function setCalTypeFilter(type) {
 // ── Tab ────────────────────────────────────────────────────────
 function switchTab(tab) {
   state.currentTab = tab;
-  ['home','cal','sheet','memo','campaign','budgetCalc','info'].forEach(t => {
+  ['home','cal','sheet','memo','campaign','info'].forEach(t => {
     const viewEl = document.getElementById('view'+t.charAt(0).toUpperCase()+t.slice(1));
     if(viewEl) viewEl.classList.toggle('active', tab===t);
   });
@@ -3142,13 +3150,12 @@ function switchTab(tab) {
   document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
   const btn = document.getElementById('headerAddBtn');
   const labels = {cal:'일정 추가', sheet:'업무 추가', memo:'새 메모', campaign:'새 캠페인'};
-  btn.style.display = (tab === 'budgetCalc' || tab === 'home' || tab === 'info') ? 'none' : '';
+  btn.style.display = (tab === 'home' || tab === 'info') ? 'none' : '';
   btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>${labels[tab]||'추가'}</span>`;
   if(tab==='home') renderHome();
   if(tab==='sheet') renderSheet();
   if(tab==='memo') renderMemoView();
   if(tab==='campaign') renderCampaignView();
-  if(tab==='budgetCalc') renderBudgetCalc();
   if(tab==='info') renderInfoView();
 }
 function headerAdd() {
@@ -5256,43 +5263,6 @@ function updateMediaMarkupRate(campId, mediaId, val) {
   row.markupRate = Number(val) || 0;
   save();
   renderCampaignView();
-}
-
-// ── 일예산 계산기 (독립 탭) ────────────────────────────────────
-let bc = { amount: 0, startDate: null, endDate: null, budgetMode: 'exclude_vat', markupRate: 20 };
-
-function renderBudgetCalc() {
-  document.getElementById('bcAmount').value = bc.amount || '';
-  document.getElementById('bcStart').value = bc.startDate || '';
-  document.getElementById('bcEnd').value = bc.endDate || '';
-  document.getElementById('bcMarkupRate').value = bc.markupRate ?? 20;
-  bcRefreshOutputs();
-}
-
-function bcRefreshOutputs() {
-  document.querySelectorAll('#bcModeGroup .ct-budget-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === bc.budgetMode);
-  });
-  document.getElementById('bcMarkupWrap').style.display = bc.budgetMode === 'exclude_markup' ? '' : 'none';
-
-  const days = mediaExecDays(bc);
-  const daily = computeMediaDailyBudget(bc);
-  // 기준금액은 일예산과 똑같은 계산식을 써야 해서 공용 함수를 그대로 사용한다 (예전엔 여기서 따로 계산해 어긋날 수 있었음)
-  const base = days ? computeMediaBaseAmount(Number(bc.amount) || 0, bc) : null;
-  document.getElementById('bcDays').textContent = days ? `${days}일` : '-';
-  document.getElementById('bcBase').textContent = base !== null ? fmtWon(base) : '-';
-  document.getElementById('bcDaily').textContent = daily !== null ? fmtWon(daily) : '-';
-}
-
-function bcUpdate(field, val) {
-  if(field === 'amount' || field === 'markupRate') bc[field] = Number(val) || 0;
-  else bc[field] = val || null;
-  bcRefreshOutputs();
-}
-
-function bcSetMode(mode) {
-  bc.budgetMode = mode;
-  bcRefreshOutputs();
 }
 
 function getCampaignPeriod(camp) {
