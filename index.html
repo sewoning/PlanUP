@@ -5502,12 +5502,32 @@ function mmFindMediaMixSheet(sheetNames) {
 // 해당 기준 값이 없는 슬롯은 제외하고, 유효한 슬롯이 2개 미만이면 비중을 매기지 않는다.
 // 반환 항목에 amountLeft/amountRight 원본값을 같이 담아둬서, 나중에 기준을 바꿔도(불러온 뒤에도) 재계산할 수 있게 한다.
 function mmComputeAdGroupsFromEntries(entries, basis) {
-  const key = basis === 'left' ? 'amountLeft' : 'amountRight';
+  // 기준 컬럼에 슬롯별 값이 없는 양식도 많다 (예: "금액"엔 매체 총액만 있고 슬롯별 금액은 "공시단가"에만 있는 경우).
+  // 비중은 어차피 비율이라 슬롯별 값이 실제로 들어있는 쪽으로 계산하면 된다.
+  const primary = basis === 'left' ? 'amountLeft' : 'amountRight';
+  const secondary = primary === 'amountLeft' ? 'amountRight' : 'amountLeft';
+  const countValid = k => entries.filter(e => typeof e[k] === 'number' && e[k] > 0).length;
+  const key = countValid(primary) >= 2 ? primary : (countValid(secondary) >= 2 ? secondary : primary);
+
   const valid = entries.filter(e => typeof e[key] === 'number' && e[key] > 0);
   if(valid.length < 2) return [];
   const total = valid.reduce((s, e) => s + e[key], 0);
   if(total <= 0) return [];
   return valid.map(e => ({ name: e.name, weight: Math.round((e[key] / total) * 1000) / 10, amountLeft: e.amountLeft, amountRight: e.amountRight }));
+}
+
+// 같은 이름으로 잡힌 슬롯은 하나로 합친다. 이름이 겹치면 화면에 똑같은 줄이 여러 개 뜨는데,
+// 그 상태로는 어느 줄이 뭔지 구분이 안 돼서 차라리 합친 하나로 보여주는 편이 쓸모 있다.
+function mmMergeSlotEntriesByName(entries) {
+  const merged = [];
+  entries.forEach(e => {
+    const hit = merged.find(m => m.name === e.name);
+    if(!hit) { merged.push({ ...e }); return; }
+    ['amountLeft', 'amountRight'].forEach(k => {
+      if(typeof e[k] === 'number') hit[k] = (typeof hit[k] === 'number' ? hit[k] : 0) + e[k];
+    });
+  });
+  return merged;
 }
 
 // 미디어믹스 워크북(카카오/네이버 등 대행사 표준 양식)을 파싱해 {campaignName, rows:[{name,startDate,endDate}]} 반환.
@@ -5612,6 +5632,7 @@ function parseMediaMixWorkbook(wb) {
   if(slotTitle && mediaList.length) {
     const slotHeaderRow = findHeaderRow(slotTitle.row + 1, rowCount);
     let periodCol = null, productCol = null, placementCol = null, slotAmountCol = null, slotAmountLeftCol = null;
+    let targetingCol = null, groupBudgetCol = null, creativeCol = null;
     if(slotHeaderRow != null) {
       for(let c = 0; c < colCount; c++) {
         const t = mmNormText(cell(slotHeaderRow, c));
@@ -5620,8 +5641,14 @@ function parseMediaMixWorkbook(wb) {
         else if(t === '지면') placementCol = c;
         else if(t === '공시단가') slotAmountCol = c; // "슬롯 공시단가"와는 정규화 후 문자열이 달라 구분됨
         else if(t === '금액') slotAmountLeftCol = c; // 좌측 "금액" 컬럼 (공시단가와 별개 기준으로 선택 가능하게)
+        else if(t === '타겟팅' || t === '타게팅') targetingCol = c;
+        else if(t === '캠페인별예산') groupBudgetCol = c;
+        else if(t === '소재구분') creativeCol = c;
       }
     }
+    // 제품/브랜드 묶음 라벨은 "캠페인 별 예산" 바로 왼쪽 칸(양식상 이 자리)에 들어가고,
+    // 그 묶음의 첫 줄에만 적혀 있어서 아래 줄로 이어서 써야 한다. 그 자리가 비면 "소재구분"을 쓴다.
+    const groupLabelCol = groupBudgetCol != null ? groupBudgetCol - 1 : null;
     if(slotHeaderRow != null && periodCol != null) {
       let r = slotHeaderRow + 1;
       let mediaIdx = 0;
@@ -5637,7 +5664,11 @@ function parseMediaMixWorkbook(wb) {
 
         let start = null, end = null;
         const slotEntries = []; // 광고그룹(상품/타겟팅 슬롯)별 배분 후보
+        let carriedGroupLabel = null; // 제품/브랜드 묶음 라벨 (묶음 첫 줄에만 적혀 있어 아래 줄로 이어감)
         for(let rr = r; rr <= blockEnd; rr++) {
+          // blockEnd는 "Sub total" 행이다. 여기엔 매체 합계가 들어있어서 슬롯으로 세면
+          // 광고그룹 하나가 통째로 더 생기고 비중까지 틀어진다 — 기간만 읽고 슬롯 수집에선 뺀다.
+          const isSubtotalRow = rr === blockEnd;
           const v = cell(rr, periodCol);
           if(v !== null && String(v).trim() !== '' && String(v).trim() !== '0') {
             const p = mmParsePeriodRangeText(v, fallbackYear);
@@ -5646,27 +5677,43 @@ function parseMediaMixWorkbook(wb) {
               if(!end || p.end > end) end = p.end;
             }
           }
+          const txt = c => {
+            if(c == null) return null;
+            const val = cell(rr, c);
+            if(val === null || String(val).trim() === '' || String(val).trim() === '0') return null;
+            return String(val).trim();
+          };
+          const labelHere = txt(groupLabelCol) || txt(creativeCol);
+          if(labelHere) carriedGroupLabel = labelHere;
+          if(isSubtotalRow) continue;
+
           const amtRight = slotAmountCol != null ? cell(rr, slotAmountCol) : null;
           const amtLeft = slotAmountLeftCol != null ? cell(rr, slotAmountLeftCol) : null;
           const hasRight = typeof amtRight === 'number' && amtRight > 0;
           const hasLeft = typeof amtLeft === 'number' && amtLeft > 0;
           if(hasRight || hasLeft) {
-            const nameVal = productCol != null ? cell(rr, productCol) : null;
-            const fallbackVal = placementCol != null ? cell(rr, placementCol) : null;
-            const name = (nameVal !== null && String(nameVal).trim() !== '') ? String(nameVal).trim()
-              : (fallbackVal !== null && String(fallbackVal).trim() !== '') ? String(fallbackVal).trim() : null;
+            // 이름은 "무엇이 이 줄을 다른 줄과 구분시키는가" 순서로 조합한다.
+            // 타겟팅(일반/리타겟팅 등)이 있으면 그게 가장 실무적인 구분이고, 제품 묶음이 함께 있으면 앞에 붙인다.
+            const targeting = txt(targetingCol);
+            const product = txt(productCol);
+            const placement = txt(placementCol);
+            let name = null;
+            if(targeting) name = carriedGroupLabel ? `${carriedGroupLabel} · ${targeting}` : targeting;
+            else if(carriedGroupLabel && product) name = `${carriedGroupLabel} · ${product}`;
+            else name = product || carriedGroupLabel || placement || null;
             if(name) slotEntries.push({ name, amountLeft: hasLeft ? amtLeft : null, amountRight: hasRight ? amtRight : null });
           }
         }
+        const mergedEntries = mmMergeSlotEntriesByName(slotEntries);
         mediaList[mediaIdx].startDate = start;
         mediaList[mediaIdx].endDate = end;
-        mediaList[mediaIdx]._slotEntries = slotEntries;
+        mediaList[mediaIdx]._slotEntries = mergedEntries;
         // 슬롯의 "공시단가(서비스율 포함)" 합계를 매체 단위의 서비스율 포함 총액으로 확보 (금액과 별개 기준으로 나중에 전환 가능하게)
         const rightVals = slotEntries.map(e => e.amountRight).filter(v => typeof v === 'number' && v > 0);
         if(rightVals.length) mediaList[mediaIdx].amountRight = rightVals.reduce((s, v) => s + v, 0);
         // 매체 안에 슬롯(광고그룹 후보)이 2개 이상일 때만 비중을 자동으로 나눠 넣는다 (1개뿐이면 그룹 나눌 의미가 없음)
-        if(slotEntries.length >= 2) {
-          mediaList[mediaIdx].adGroups = mmComputeAdGroupsFromEntries(slotEntries, mediaList[mediaIdx].amountBasis);
+        if(mergedEntries.length >= 2) {
+          mediaList[mediaIdx].adGroups = mmComputeAdGroupsFromEntries(mergedEntries, mediaList[mediaIdx].amountBasis);
         }
         mediaIdx++;
         r = blockEnd + 1;
@@ -5782,7 +5829,8 @@ function renderMmImportPreview() {
       const hintRow = document.createElement('div');
       hintRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-left:2px;';
       const groupsText = row.adGroups && row.adGroups.length >= 2
-        ? `🔹 광고그룹 ${row.adGroups.length}개 자동 감지: ${row.adGroups.map(g => `${g.name}(${g.weight}%)`).join(', ')} · `
+        // 그룹이 7개까지 잡히는 믹스도 있어서 전부 나열하면 줄이 너무 길어진다 (특히 폰에서). 앞 3개만 보여주고 나머지는 개수로.
+        ? `🔹 광고그룹 ${row.adGroups.length}개 자동 감지: ${row.adGroups.slice(0, 3).map(g => `${g.name}(${g.weight}%)`).join(', ')}${row.adGroups.length > 3 ? ` 외 ${row.adGroups.length - 3}개` : ''} · `
         : '';
       hintRow.innerHTML = `
         <span style="font-size:11px;color:var(--gray-400);">${escHtml(groupsText)}금액 ${fmtWon(row.amountLeft)} / 서비스율 포함 ${fmtWon(row.amountRight)}</span>
