@@ -79,8 +79,20 @@ if ($Forget) {
 }
 
 if ($Uninstall) {
-  try { Unregister-ScheduledTask -TaskName $TASK_NAME -Confirm:$false; Write-Host "자동 실행을 해제했어요." -ForegroundColor Green }
-  catch { Write-Host "등록된 자동 실행이 없어요." }
+  # 설치 방식이 두 가지(작업 스케줄러 / 시작프로그램)라 양쪽 다 치운다
+  $done = @()
+  try { Unregister-ScheduledTask -TaskName $TASK_NAME -Confirm:$false -ErrorAction Stop; $done += '작업 스케줄러' } catch {}
+
+  $vbs = Join-Path ([Environment]::GetFolderPath('Startup')) 'PlanUP 메일 동기화.vbs'
+  if (Test-Path $vbs) { Remove-Item $vbs -Force; $done += '시작프로그램' }
+
+  # 지금 돌고 있는 반복 실행기도 멈춘다
+  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+    Where-Object { $_.CommandLine -like '*loop.ps1*' } |
+    ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force; $done += '실행 중이던 프로세스' } catch {} }
+
+  if ($done) { Write-Host ("자동 실행을 해제했어요 — " + ($done -join ', ')) -ForegroundColor Green }
+  else { Write-Host "등록된 자동 실행이 없어요." }
   return
 }
 
@@ -99,30 +111,86 @@ if ($InstallTask) {
   Save-Cred $Nickname $Password
 
   $self = $MyInvocation.MyCommand.Path
-  $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -NonInteractive -File `"$self`""
 
-  # 로그온하면 시작해서 N분마다 반복. 기간을 아주 길게 줘서 사실상 무기한으로 둔다.
-  $trigger = New-ScheduledTaskTrigger -AtLogOn
-  $trigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) `
-    -RepetitionInterval (New-TimeSpan -Minutes $EveryMinutes) `
-    -RepetitionDuration (New-TimeSpan -Days 3650)).Repetition
+  # 작업 스케줄러가 제일 깔끔하지만 등록에 관리자 권한이 필요하다. 회사 PC라 권한이
+  # 없는 경우가 많아서, 막히면 시작프로그램 폴더로 자동으로 넘어간다.
+  # CIM 기반 cmdlet은 $ErrorActionPreference='Stop'을 무시하고 넘어가는 일이 있어서,
+  # 예외에만 기대지 않고 "작업이 실제로 등록됐는지"를 확인한 뒤에만 성공으로 친다.
+  $installed = 'startup'
+  try {
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+      -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -NonInteractive -File `"$self`""
 
-  # 아웃룩 COM은 로그인한 세션에서만 열리므로 대화형 사용자로 돌린다.
-  $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive
-  $settings = New-ScheduledTaskSettings -StartWhenAvailable -DontStopIfGoingOnBatteries `
-    -AllowStartIfOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+    # 로그온하면 시작해서 N분마다 반복. 기간을 아주 길게 줘서 사실상 무기한으로 둔다.
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $trigger.Repetition = (New-ScheduledTaskTrigger -Once -At (Get-Date) `
+      -RepetitionInterval (New-TimeSpan -Minutes $EveryMinutes) `
+      -RepetitionDuration (New-TimeSpan -Days 3650)).Repetition
 
-  Register-ScheduledTask -TaskName $TASK_NAME -Action $action -Trigger $trigger `
-    -Principal $principal -Settings $settings `
-    -Description '당일 아웃룩 메일 헤더를 PlanUP으로 올립니다' -Force | Out-Null
+    # 아웃룩이 느릴 때가 있어서, 앞 회차가 아직 돌고 있으면 이번 회차는 건너뛴다
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
+      -AllowStartIfOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 25) `
+      -MultipleInstances IgnoreNew
+
+    Register-ScheduledTask -TaskName $TASK_NAME -Action $action -Trigger $trigger `
+      -Settings $settings -Description '당일 아웃룩 메일 헤더를 PlanUP으로 올립니다' `
+      -Force -ErrorAction Stop 2>$null | Out-Null
+    if (Get-ScheduledTask -TaskName $TASK_NAME -ErrorAction SilentlyContinue) {
+      Start-ScheduledTask -TaskName $TASK_NAME -ErrorAction SilentlyContinue
+      $installed = 'task'
+    }
+  } catch {
+    $installed = 'startup'   # 대개 관리자 권한 없음 (HRESULT 0x80070005)
+  }
+
+  if ($installed -eq 'startup') {
+    # 작업 스케줄러를 못 쓰니, 로그인할 때 뜨는 숨은 프로세스가 직접 주기를 센다.
+    $loopPs  = Join-Path $CredDir 'loop.ps1'
+    $logFile = Join-Path $CredDir 'sync.log'
+    $secs = $EveryMinutes * 60
+
+    $loopBody = @"
+# PlanUP 메일 동기화 반복 실행기 (작업 스케줄러 권한이 없을 때 쓰는 대안).
+# 같은 게 두 번 뜨지 않도록 뮤텍스로 한 번에 하나만 돌게 막는다.
+`$mutex = New-Object System.Threading.Mutex(`$false, 'PlanUPMailSyncLoop')
+if (-not `$mutex.WaitOne(0)) { return }
+try {
+  while (`$true) {
+    `$ts = Get-Date -Format 'yyyy-MM-dd HH:mm'
+    try { `$out = & '$self' 2>&1 | Out-String } catch { `$out = `$_.Exception.Message }
+    "[`$ts] `$(`$out.Trim())" | Add-Content -Path '$logFile' -Encoding UTF8
+    # 로그가 계속 자라지 않게 최근 것만 남긴다
+    if ((Get-Item '$logFile').Length -gt 200KB) {
+      Get-Content '$logFile' -Tail 100 | Set-Content '$logFile' -Encoding UTF8
+    }
+    Start-Sleep -Seconds $secs
+  }
+} finally { `$mutex.ReleaseMutex() }
+"@
+    [System.IO.File]::WriteAllText($loopPs, $loopBody, (New-Object System.Text.UTF8Encoding $true))
+
+    # 검은 창이 뜨지 않게 VBS로 숨겨서 띄운다
+    $startup = [Environment]::GetFolderPath('Startup')
+    $vbs = Join-Path $startup 'PlanUP 메일 동기화.vbs'
+    $vbsBody = "CreateObject(""WScript.Shell"").Run ""powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """"$loopPs"""""", 0, False"
+    [System.IO.File]::WriteAllText($vbs, $vbsBody, [System.Text.Encoding]::Unicode)
+
+    # 지금 바로 돌기 시작
+    Start-Process 'wscript.exe' -ArgumentList "`"$vbs`"" -WindowStyle Hidden
+  }
 
   Write-Host ""
-  Write-Host "등록 완료 — $EveryMinutes 분마다 자동으로 올라가요." -ForegroundColor Green
+  if ($installed -eq 'task') {
+    Write-Host "등록 완료 — 작업 스케줄러로 $EveryMinutes 분마다 올라가요." -ForegroundColor Green
+  } else {
+    Write-Host "등록 완료 — $EveryMinutes 분마다 올라가요." -ForegroundColor Green
+    Write-Host "(이 PC에 작업 스케줄러 등록 권한이 없어서 시작프로그램 방식으로 넣었어요)" -ForegroundColor Gray
+    Write-Host "기록: $(Join-Path $CredDir 'sync.log')" -ForegroundColor Gray
+  }
   Write-Host "비밀번호는 이 PC의 이 계정에서만 풀리게 암호화해서 보관했어요:" -ForegroundColor Gray
   Write-Host "  $CredFile" -ForegroundColor Gray
-  Write-Host "지금 바로 한 번 돌려볼게요..." -ForegroundColor Cyan
-  Start-ScheduledTask -TaskName $TASK_NAME
+  Write-Host ""
+  Write-Host "지금 첫 회차가 돌고 있어요. 잠시 뒤 PlanUP 메일 탭을 새로고침해보세요." -ForegroundColor Cyan
   return
 }
 
@@ -234,10 +302,20 @@ $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($clean)).Replace
 $email = "u$b64@planup.local"
 
 Write-Host "PlanUP 로그인 중..." -ForegroundColor Cyan
-$auth = Invoke-RestMethod -Method Post `
-  -Uri "$SUPABASE_URL/auth/v1/token?grant_type=password" `
-  -Headers @{ apikey = $SUPABASE_ANON_KEY; 'Content-Type' = 'application/json' } `
-  -Body (@{ email = $email; password = $Password } | ConvertTo-Json)
+try {
+  $auth = Invoke-RestMethod -Method Post `
+    -Uri "$SUPABASE_URL/auth/v1/token?grant_type=password" `
+    -Headers @{ apikey = $SUPABASE_ANON_KEY; 'Content-Type' = 'application/json' } `
+    -Body (@{ email = $email; password = $Password } | ConvertTo-Json)
+} catch {
+  # 자동 실행일 땐 이 메시지만 로그에 남으므로, 뭘 해야 하는지까지 적어준다
+  $code = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
+  if ($code -eq 400) {
+    throw "로그인 실패 — 닉네임($Nickname) 또는 비밀번호가 맞지 않아요. " +
+          "'메일 자동연동 설정.bat'을 다시 실행해서 비밀번호를 새로 넣어주세요."
+  }
+  throw "PlanUP 로그인 중 오류 (HTTP $code): $($_.Exception.Message)"
+}
 
 $token = $auth.access_token
 $hdr = @{
@@ -265,8 +343,16 @@ for ($i = 0; $i -lt $items.Count; $i += $batch) {
   # PowerShell 5.1의 ConvertTo-Json은 원소가 하나면 배열로 안 싸줘서 직접 맞춰준다
   $json = $slice | ConvertTo-Json -Depth 4
   if ($slice.Count -eq 1) { $json = "[$json]" }
-  Invoke-RestMethod -Method Post -Uri "$SUPABASE_URL/rest/v1/mail_items" `
-    -Headers $upsertHdr -Body ([Text.Encoding]::UTF8.GetBytes($json)) | Out-Null
+  try {
+    Invoke-RestMethod -Method Post -Uri "$SUPABASE_URL/rest/v1/mail_items" `
+      -Headers $upsertHdr -Body ([Text.Encoding]::UTF8.GetBytes($json)) | Out-Null
+  } catch {
+    $code = try { [int]$_.Exception.Response.StatusCode } catch { 0 }
+    if ($code -eq 404) {
+      throw "mail_items 테이블이 아직 없어요. Supabase SQL Editor에서 supabase-mail.sql을 먼저 실행해주세요."
+    }
+    throw "메일을 올리는 중 오류 (HTTP $code): $($_.Exception.Message)"
+  }
   $sent += $slice.Count
   Write-Host ("  올림 {0}/{1}" -f $sent, $items.Count)
 }
