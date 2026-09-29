@@ -426,7 +426,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .mail-read-meta{display:grid;grid-template-columns:62px 1fr;gap:5px 10px;font-size:12.5px;color:var(--gray-700);padding-bottom:14px;border-bottom:1px solid var(--gray-100);margin-bottom:14px;}
 .mail-read-meta dt{color:var(--gray-400);font-weight:600;}
 .mail-read-meta dd{margin:0;min-width:0;word-break:break-all;}
-.mail-read-preview{font-size:13.5px;line-height:1.75;color:var(--gray-800);white-space:pre-wrap;}
+.mail-read-body{font-size:13.5px;line-height:1.75;color:var(--gray-800);white-space:pre-wrap;}
 .mail-read-note{margin-top:16px;padding:11px 13px;background:var(--gray-50);border-radius:var(--r-sm);font-size:12px;color:var(--gray-500);line-height:1.6;}
 .mail-read-atts{margin-top:14px;display:flex;flex-direction:column;gap:5px;}
 .mail-att{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-700);background:var(--gray-50);border-radius:var(--r-sm);padding:6px 10px;word-break:break-all;}
@@ -3298,7 +3298,7 @@ async function loadMail(force) {
   if(force || !mailItems.length) { if(listEl) listEl.innerHTML = '<div class="mail-placeholder">불러오는 중…</div>'; }
   try {
     const { data, error } = await sb.from('mail_items')
-      .select('id,entry_id,direction,subject,from_name,from_email,to_line,sent_at,folder,has_attach,attachments,preview,unread')
+      .select('id,entry_id,direction,subject,from_name,from_email,to_line,sent_at,folder,has_attach,attachments,body,unread')
       .order('sent_at', { ascending: false })
       .limit(500);
     if(error) throw error;
@@ -3319,7 +3319,7 @@ function mailFiltered() {
     if(mailFilter === 'sent' && m.direction !== 'sent') return false;
     if(mailFilter === 'attach' && !m.has_attach) return false;
     if(!q) return true;
-    return [m.subject, m.from_name, m.from_email, m.preview, (m.attachments || []).join(' ')]
+    return [m.subject, m.from_name, m.from_email, m.body, (m.attachments || []).join(' ')]
       .some(v => (v || '').toLowerCase().includes(q));
   });
 }
@@ -3370,7 +3370,7 @@ function renderMailList() {
         <span class="mail-item-time">${hhmm}</span>
       </div>
       <div class="mail-item-subject">${escHtml(m.subject || '(제목 없음)')}</div>
-      <div class="mail-item-preview">${escHtml(m.preview || '')}</div>
+      <div class="mail-item-preview">${escHtml((m.body || '').replace(/s+/g, ' ').trim())}</div>
       ${(m.direction==='sent' || m.has_attach) ? `<div class="mail-item-tags">
         ${m.direction==='sent' ? '<span class="mail-tag sent">보낸메일</span>' : ''}
         ${m.has_attach ? `<span class="mail-tag attach">📎 ${(m.attachments||[]).length}</span>` : ''}
@@ -3410,9 +3410,9 @@ function renderMailReading() {
       <dt>시각</dt><dd>${when}</dd>
       <dt>폴더</dt><dd>${escHtml(m.folder || '-')}</dd>
     </dl>
-    <div class="mail-read-preview">${escHtml(m.preview || '')}</div>
+    <div class="mail-read-body">${escHtml(m.body || '')}</div>
     ${atts.length ? `<div class="mail-read-atts">${atts.map(a => `<span class="mail-att">📎 ${escHtml(a)}</span>`).join('')}</div>` : ''}
-    <div class="mail-read-note">본문은 앞 200자까지만 올라와요. 전체 내용과 첨부파일은 아웃룩에서 확인하세요.</div>`;
+    <div class="mail-read-note">새로 온 내용만 보여요 — 아래에 딸려오던 이전 메일은 걷어냈어요. 원문과 첨부파일은 아웃룩에서 확인하세요.</div>`;
 }
 
 function switchTab(tab) {

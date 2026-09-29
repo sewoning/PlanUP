@@ -22,12 +22,28 @@ create table if not exists mail_items (
   folder      text,
   has_attach  boolean not null default false,
   attachments text[] not null default '{}',
-  preview     text,
+
+  -- 새로 온 내용만 담는다. 아래에 인용되어 딸려오는 이전 메일들은 수집기가 걷어낸다
+  -- (실측: 하루 82건 174만 자 → 13만 자, 93% 감소). 첨부파일 내용은 여전히 올리지 않는다.
+  body        text,
   unread      boolean not null default false,
   synced_at   timestamptz not null default now(),
 
   unique (user_id, entry_id)
 );
+
+-- 처음엔 본문 앞 200자만 담아서 칼럼 이름이 preview였다. 이제 새 본문 전체를 담으므로
+-- 이름을 맞춰준다 — 이미 만들어 쓰던 테이블도 그대로 따라오게 조건부로 바꾼다.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_name = 'mail_items' and column_name = 'preview'
+  ) then
+    alter table mail_items rename column preview to body;
+  end if;
+end
+$$;
 
 -- 목록은 항상 "내 메일을 최신순으로"라서 이 조합으로만 조회한다
 create index if not exists mail_items_user_sent_idx on mail_items (user_id, sent_at desc);

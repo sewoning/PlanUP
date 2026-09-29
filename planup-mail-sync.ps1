@@ -40,9 +40,10 @@ $SUPABASE_URL = 'https://awtdpyoiecymhnwjvtki.supabase.co'
 $SUPABASE_ANON_KEY = 'sb_publishable_GgvVhU2ecDXearjojyz-6Q_Yxlnp-TB'
 $TASK_NAME = 'PlanUP 메일 동기화'
 
-# 본문에서 가져올 길이. 예산·단가 같은 민감한 내용은 보통 이 뒤쪽에 있어서,
-# 여기서 끊으면 검색에 쓸 단서는 남기면서 내용은 거의 가져오지 않는다.
-$PreviewLen = 200
+# 새로 온 내용만 담고, 아래에 인용되어 딸려오는 이전 메일들은 걷어낸다.
+# 답장이 오갈수록 같은 내용이 계속 불어나서(실측 13만 자짜리 스레드도 있었다) 용량 대부분을
+# 차지하는데, 정작 읽고 싶은 건 맨 위 새 내용뿐이다. 실측으로 174만 자 → 13만 자(93% 감소).
+$BodyCap = 8000   # 뉴스레터처럼 유난히 긴 것에 대비한 안전장치 (평소엔 걸리지 않는다)
 
 # ── 비밀번호 보관 ─────────────────────────────────────────────────
 # 무인 실행을 하려면 비밀번호가 어딘가 있어야 한다. DPAPI로 암호화해서 두면
@@ -200,6 +201,32 @@ function Clean([string]$s) {
   ($s -replace '\s+', ' ').Trim()
 }
 
+# 인용된 이전 메일이 시작되는 지점을 찾는다.
+# 아웃룩 답장은 구분선 없이 "From:" 줄 바로 다음에 "Sent:"가 오는 헤더 블록으로 시작하는 게
+# 가장 흔하다. 이 "두 줄 연속" 조합이라야 본문에 우연히 섞인 From: 한 줄에 안 속는다.
+$QuoteMarkers = @(
+  '-{2,}\s*(원본 메시지|Original Message)\s*-{2,}',
+  '(?m)^[ \t>]*(From|보낸\s?사람)\s*:.*\r?\n[ \t>]*(Sent|보낸\s?날짜)\s*:',
+  '(?m)^[ \t>]*(보낸\s?사람|From)\s*:.*\r?\n[ \t>]*(받는\s?사람|To)\s*:',
+  '(?m)^[ \t]*[_-]{10,}[ \t]*\r?\n(?:[ \t]*\r?\n){0,3}[ \t]*(보낸\s?사람|From)\s*:',
+  '(?m)^.{0,100}(님이 작성했습니다|wrote:)[ \t]*$'
+)
+
+function Get-NewBody([string]$raw) {
+  if (-not $raw) { return "" }
+  $at = $raw.Length
+  foreach ($r in $QuoteMarkers) {
+    $mm = [regex]::Match($raw, $r)
+    if ($mm.Success -and $mm.Index -lt $at) { $at = $mm.Index }
+  }
+  # 맨 앞에서 잘렸다면 전달(Fwd)처럼 인용이 곧 본문인 경우다 — 그땐 자르지 않는다
+  if ($at -lt 120) { $at = $raw.Length }
+  $b = $raw.Substring(0, $at).Trim()
+  if ($b.Length -gt $BodyCap) { $b = $b.Substring(0, $BodyCap).TrimEnd() + "`n…(이후 생략)" }
+  # 줄바꿈은 살리되, 빈 줄이 우르르 이어지는 건 줄인다 (아웃룩 본문에 흔하다)
+  ($b -replace '[ \t]+\r?\n', "`n") -replace '(\r?\n){3,}', "`n`n"
+}
+
 Write-Host "아웃룩에서 읽는 중..." -ForegroundColor Cyan
 $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace("MAPI")
@@ -235,8 +262,7 @@ foreach ($store in $ns.Folders) {
             }
           }
 
-          $body = Clean $m.Body
-          if ($body.Length -gt $PreviewLen) { $body = $body.Substring(0, $PreviewLen) }
+          $body = Get-NewBody $m.Body
 
           $items += [ordered]@{
             entry_id    = $m.EntryID
@@ -249,7 +275,7 @@ foreach ($store in $ns.Folders) {
             folder      = "$($store.Name)/$folderName"
             has_attach  = ($atts.Count -gt 0)
             attachments = @($atts)
-            preview     = $body
+            body        = $body
             unread      = [bool]$m.UnRead
           }
         }
