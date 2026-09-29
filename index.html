@@ -398,41 +398,6 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 @media(max-width:520px){ .calendar-header{flex-wrap:wrap;gap:8px;padding:12px 14px} .ctf-btn,.vm-btn{padding:0 10px;font-size:12px} }
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:10px} ::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
 
-/* ── 메일 (아웃룩 비슷한 목록 + 읽기 창) ── */
-/* .view.active가 가로 flex라서, 그냥 두면 툴바가 목록 옆에 세로로 붙는다 */
-#viewMail.active{flex-direction:column;gap:0;}
-.mail-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:12px 14px;margin-bottom:12px;}
-.mail-filters{display:flex;gap:6px;flex-wrap:wrap;}
-.mail-search-wrap{display:flex;align-items:center;gap:6px;flex:1;min-width:180px;border:1.5px solid var(--gray-200);border-radius:var(--r-sm);padding:0 10px;height:32px;color:var(--gray-400);}
-.mail-search-wrap:focus-within{border-color:var(--blue);}
-.mail-search{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;font-family:inherit;color:var(--gray-900);}
-.mail-split{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:12px;align-items:start;}
-.mail-list{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden;max-height:calc(100vh - 210px);overflow-y:auto;}
-.mail-item{display:block;width:100%;text-align:left;border:none;background:none;font-family:inherit;cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--gray-100);border-left:3px solid transparent;transition:background .12s;}
-.mail-item:hover{background:var(--gray-50);}
-.mail-item.active{background:var(--blue-light);border-left-color:var(--blue);}
-.mail-item.unread .mail-item-subject{font-weight:700;color:var(--gray-900);}
-.mail-item-top{display:flex;align-items:baseline;gap:8px;margin-bottom:3px;}
-.mail-item-from{font-size:12.5px;font-weight:600;color:var(--gray-700);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.mail-item-time{font-size:11px;color:var(--gray-400);flex-shrink:0;}
-.mail-item-subject{font-size:13px;color:var(--gray-800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;}
-.mail-item-preview{font-size:11.5px;color:var(--gray-400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.mail-item-tags{display:flex;gap:4px;align-items:center;margin-top:4px;flex-wrap:wrap;}
-.mail-tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;background:var(--gray-100);color:var(--gray-500);white-space:nowrap;}
-.mail-tag.sent{background:#EDE9FE;color:#7C3AED;}
-.mail-tag.attach{background:var(--success-bg);color:var(--green);}
-.mail-reading{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:20px 22px;min-height:320px;max-height:calc(100vh - 210px);overflow-y:auto;}
-.mail-read-subject{font-size:17px;font-weight:700;color:var(--gray-900);line-height:1.4;margin-bottom:12px;}
-.mail-read-meta{display:grid;grid-template-columns:62px 1fr;gap:5px 10px;font-size:12.5px;color:var(--gray-700);padding-bottom:14px;border-bottom:1px solid var(--gray-100);margin-bottom:14px;}
-.mail-read-meta dt{color:var(--gray-400);font-weight:600;}
-.mail-read-meta dd{margin:0;min-width:0;word-break:break-all;}
-.mail-read-body{font-size:13.5px;line-height:1.75;color:var(--gray-800);white-space:pre-wrap;}
-.mail-read-note{margin-top:16px;padding:11px 13px;background:var(--gray-50);border-radius:var(--r-sm);font-size:12px;color:var(--gray-500);line-height:1.6;}
-.mail-read-atts{margin-top:14px;display:flex;flex-direction:column;gap:5px;}
-.mail-att{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-700);background:var(--gray-50);border-radius:var(--r-sm);padding:6px 10px;word-break:break-all;}
-.mail-placeholder{display:flex;align-items:center;justify-content:center;height:280px;color:var(--gray-300);font-size:13px;}
-.mail-empty{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:48px 28px;text-align:center;color:var(--gray-500);font-size:13px;line-height:1.8;}
-.mail-empty code{background:var(--gray-100);padding:2px 7px;border-radius:5px;font-size:12px;color:var(--gray-700);}
 
 /* ── Auth Gate ── */
 .auth-gate { position:fixed; inset:0; z-index:1000; background:var(--gray-100); display:flex; align-items:center; justify-content:center; padding:20px; }
@@ -963,13 +928,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   .ct-adgroup-weight input{ width:44px; }
   .ct-adgroup-daily{ font-size:11px; }
 
-  /* 메일: 폰에서는 목록과 읽기창을 나란히 둘 폭이 없으니 위아래로 쌓는다 */
-  .mail-split{ grid-template-columns:1fr; }
-  .mail-list{ max-height:46vh; }
-  .mail-reading{ max-height:none; min-height:0; padding:16px 14px; }
-  .mail-read-subject{ font-size:15px; }
-  .mail-read-meta{ grid-template-columns:54px 1fr; font-size:12px; }
-  .mail-toolbar{ padding:10px 12px; gap:8px; }
   .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
 }
 
@@ -1066,10 +1024,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>캠페인 현황</span>
       </button>
-      <button class="tab-btn" id="tabMail" data-tab="mail" onclick="switchTab('mail')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        <span>메일</span>
-      </button>
       <button class="tab-btn" id="tabInfo" data-tab="info" onclick="switchTab('info')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span>정보</span>
@@ -1145,10 +1099,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <button class="bottom-tab-btn" data-tab="campaign" onclick="switchTab('campaign')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     <span>캠페인</span>
-  </button>
-  <button class="bottom-tab-btn" data-tab="mail" onclick="switchTab('mail')">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-    <span>메일</span>
   </button>
   <button class="bottom-tab-btn" data-tab="info" onclick="switchTab('info')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -1493,25 +1443,6 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
       </div>
       <div class="info-empty" id="infoEmpty" style="display:none"></div>
     </div>
-  </div>
-
-  <!-- ── 메일 (개인 전용) ──
-       아웃룩은 내 PC 안의 파일이라 이 웹앱이 직접 못 읽는다. 로컬 수집 스크립트가
-       당일 메일의 헤더만 올려주고, 여기서는 그걸 아웃룩과 비슷한 목록으로 보여준다. -->
-  <div class="view" id="viewMail">
-    <div class="mail-toolbar">
-      <div class="mail-filters" id="mailFilters"></div>
-      <div class="mail-search-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="mail-search" id="mailSearch" placeholder="제목·보낸사람·내용 검색" oninput="renderMailList()">
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="loadMail(true)" title="다시 불러오기">↻</button>
-    </div>
-    <div class="mail-split">
-      <div class="mail-list" id="mailList"></div>
-      <div class="mail-reading" id="mailReading"></div>
-    </div>
-    <div class="mail-empty" id="mailEmpty" style="display:none"></div>
   </div>
 
 </div><!-- /main -->
@@ -2644,8 +2575,7 @@ function teamForceEdit() {
 // 화면 구성이 워크스페이스마다 완전히 다르다: 개인은 보통 탭 전부, 팀은 캠페인/예산계산기 대신 정보(계정),
 // 실은 정보 탭 하나만 컨택포인트로 재사용한다. 하나의 표에 두고 매번 통째로 맞춘다.
 const WORKSPACE_TABS = {
-  // 메일은 본인 것만 보이므로 개인 워크스페이스에만 둔다 (팀/실 시트에는 없음)
-  personal: ['home', 'cal', 'sheet', 'memo', 'campaign', 'mail'],
+  personal: ['home', 'cal', 'sheet', 'memo', 'campaign'],
   team:     ['home', 'cal', 'memo', 'info'],
   sil:      ['info']
 };
@@ -3277,147 +3207,9 @@ function setCalTypeFilter(type) {
 }
 
 // ── Tab ────────────────────────────────────────────────────────
-// ── 메일 ───────────────────────────────────────────────────────
-// 아웃룩 PST는 내 PC 안의 파일이라 브라우저가 직접 읽을 수 없다. 그래서 로컬 수집
-// 스크립트(planup-mail-sync.ps1)가 당일 메일의 헤더만 올려주고, 여기서는 그걸 읽기만 한다.
-// 본문 전체와 첨부파일은 올라오지 않으므로, 원문이 필요하면 아웃룩에서 열어야 한다.
-let mailItems = [];
-let mailFilter = 'all';        // all | received | sent | attach
-let mailSelectedId = null;
-let mailLoadedAt = 0;
-
-async function renderMailView() {
-  // 탭을 오갈 때마다 다시 불러오면 낭비라서, 2분 안에 불러온 게 있으면 그대로 쓴다
-  if(!mailLoadedAt || Date.now() - mailLoadedAt > 120000) await loadMail();
-  else renderMailList();
-}
-
-async function loadMail(force) {
-  if(!authUser) return;
-  const listEl = document.getElementById('mailList');
-  if(force || !mailItems.length) { if(listEl) listEl.innerHTML = '<div class="mail-placeholder">불러오는 중…</div>'; }
-  try {
-    const { data, error } = await sb.from('mail_items')
-      .select('id,entry_id,direction,subject,from_name,from_email,to_line,sent_at,folder,has_attach,attachments,body,unread')
-      .order('sent_at', { ascending: false })
-      .limit(500);
-    if(error) throw error;
-    mailItems = data || [];
-    mailLoadedAt = Date.now();
-  } catch(e) {
-    mailItems = [];
-    mailLoadedAt = 0;
-    // 테이블이 아직 없거나(설치 전) 권한이 없으면 빈 화면 안내로 떨어진다
-  }
-  renderMailList();
-}
-
-function mailFiltered() {
-  const q = (document.getElementById('mailSearch')?.value || '').trim().toLowerCase();
-  return mailItems.filter(m => {
-    if(mailFilter === 'received' && m.direction !== 'received') return false;
-    if(mailFilter === 'sent' && m.direction !== 'sent') return false;
-    if(mailFilter === 'attach' && !m.has_attach) return false;
-    if(!q) return true;
-    return [m.subject, m.from_name, m.from_email, m.body, (m.attachments || []).join(' ')]
-      .some(v => (v || '').toLowerCase().includes(q));
-  });
-}
-
-function renderMailList() {
-  const listEl = document.getElementById('mailList');
-  const emptyEl = document.getElementById('mailEmpty');
-  const splitEl = document.querySelector('.mail-split');
-  const filtersEl = document.getElementById('mailFilters');
-  if(!listEl) return;
-
-  // 한 건도 올라온 적 없으면 목록 대신 설치 안내를 보여준다
-  if(!mailItems.length) {
-    splitEl.style.display = 'none';
-    emptyEl.style.display = '';
-    emptyEl.innerHTML = `📭 <b>아직 올라온 메일이 없어요</b><br><br>
-      아웃룩은 내 컴퓨터 안에 있어서 이 화면이 직접 읽을 수 없어요.<br>
-      내 PC에서 수집 스크립트를 한 번 실행하면 당일 메일이 여기 나타나요.<br><br>
-      <code>powershell -ExecutionPolicy Bypass -File planup-mail-sync.ps1 -Nickname ${escHtml(myNickname() || '내닉네임')}</code>`;
-    return;
-  }
-  splitEl.style.display = '';
-  emptyEl.style.display = 'none';
-
-  const counts = {
-    all: mailItems.length,
-    received: mailItems.filter(m => m.direction === 'received').length,
-    sent: mailItems.filter(m => m.direction === 'sent').length,
-    attach: mailItems.filter(m => m.has_attach).length,
-  };
-  filtersEl.innerHTML = [['all','전체'],['received','받은'],['sent','보낸'],['attach','첨부']]
-    .map(([k, label]) => `<button class="cpf-tab${mailFilter===k?' active':''}" onclick="setMailFilter('${k}')">${label} <span class="cpf-count">${counts[k]}</span></button>`)
-    .join('');
-
-  const rows = mailFiltered();
-  if(!rows.length) {
-    listEl.innerHTML = '<div class="mail-placeholder">조건에 맞는 메일이 없어요</div>';
-    document.getElementById('mailReading').innerHTML = '<div class="mail-placeholder">메일을 선택하세요</div>';
-    return;
-  }
-  listEl.innerHTML = rows.map(m => {
-    const t = new Date(m.sent_at);
-    const hhmm = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
-    const who = m.direction === 'sent' ? ('→ ' + (m.to_line || '')) : (m.from_name || m.from_email || '');
-    return `<button class="mail-item${m.id===mailSelectedId?' active':''}${m.unread?' unread':''}" onclick="selectMail('${m.id}')">
-      <div class="mail-item-top">
-        <span class="mail-item-from">${escHtml(who)}</span>
-        <span class="mail-item-time">${hhmm}</span>
-      </div>
-      <div class="mail-item-subject">${escHtml(m.subject || '(제목 없음)')}</div>
-      <div class="mail-item-preview">${escHtml((m.body || '').replace(/s+/g, ' ').trim())}</div>
-      ${(m.direction==='sent' || m.has_attach) ? `<div class="mail-item-tags">
-        ${m.direction==='sent' ? '<span class="mail-tag sent">보낸메일</span>' : ''}
-        ${m.has_attach ? `<span class="mail-tag attach">📎 ${(m.attachments||[]).length}</span>` : ''}
-      </div>` : ''}
-    </button>`;
-  }).join('');
-
-  if(!rows.some(m => m.id === mailSelectedId)) selectMail(rows[0].id);
-  else renderMailReading();
-}
-
-function setMailFilter(k) { mailFilter = k; renderMailList(); }
-
-function selectMail(id) {
-  mailSelectedId = id;
-  // 목록을 통째로 다시 그리면 스크롤 위치가 튀어서, 선택 표시만 바꿔준다
-  const rows = mailFiltered();
-  document.querySelectorAll('.mail-item').forEach((el, i) => {
-    el.classList.toggle('active', !!rows[i] && rows[i].id === id);
-  });
-  renderMailReading();
-}
-
-function renderMailReading() {
-  const el = document.getElementById('mailReading');
-  const m = mailItems.find(x => x.id === mailSelectedId);
-  if(!el) return;
-  if(!m) { el.innerHTML = '<div class="mail-placeholder">메일을 선택하세요</div>'; return; }
-  const t = new Date(m.sent_at);
-  const when = `${t.getFullYear()}. ${t.getMonth()+1}. ${t.getDate()}. ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
-  const atts = m.attachments || [];
-  el.innerHTML = `
-    <div class="mail-read-subject">${escHtml(m.subject || '(제목 없음)')}</div>
-    <dl class="mail-read-meta">
-      <dt>보낸사람</dt><dd>${escHtml(m.from_name || '')} ${m.from_email ? `&lt;${escHtml(m.from_email)}&gt;` : ''}</dd>
-      <dt>받는사람</dt><dd>${escHtml(m.to_line || '-')}</dd>
-      <dt>시각</dt><dd>${when}</dd>
-      <dt>폴더</dt><dd>${escHtml(m.folder || '-')}</dd>
-    </dl>
-    <div class="mail-read-body">${escHtml(m.body || '')}</div>
-    ${atts.length ? `<div class="mail-read-atts">${atts.map(a => `<span class="mail-att">📎 ${escHtml(a)}</span>`).join('')}</div>` : ''}
-    <div class="mail-read-note">새로 온 내용만 보여요 — 아래에 딸려오던 이전 메일은 걷어냈어요. 원문과 첨부파일은 아웃룩에서 확인하세요.</div>`;
-}
-
 function switchTab(tab) {
   state.currentTab = tab;
-  ['home','cal','sheet','memo','campaign','info','mail'].forEach(t => {
+  ['home','cal','sheet','memo','campaign','info'].forEach(t => {
     const viewEl = document.getElementById('view'+t.charAt(0).toUpperCase()+t.slice(1));
     if(viewEl) viewEl.classList.toggle('active', tab===t);
   });
@@ -3425,14 +3217,13 @@ function switchTab(tab) {
   document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
   const btn = document.getElementById('headerAddBtn');
   const labels = {cal:'일정 추가', sheet:'업무 추가', memo:'새 메모', campaign:'새 캠페인'};
-  btn.style.display = (tab === 'home' || tab === 'info' || tab === 'mail') ? 'none' : '';
+  btn.style.display = (tab === 'home' || tab === 'info') ? 'none' : '';
   btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>${labels[tab]||'추가'}</span>`;
   if(tab==='home') renderHome();
   if(tab==='sheet') renderSheet();
   if(tab==='memo') renderMemoView();
   if(tab==='campaign') renderCampaignView();
   if(tab==='info') renderInfoView();
-  if(tab==='mail') renderMailView();
 }
 function headerAdd() {
   if(state.currentTab==='cal') openAddEventModal();
