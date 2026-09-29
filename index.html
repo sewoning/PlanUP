@@ -5144,6 +5144,27 @@ function computeMediaDailyBudget(row) {
   return computeMediaBaseAmount(Number(row.amount) || 0, row) / days;
 }
 
+// 광고그룹이 가져가는 금액(원). 화면에 보이는 비중(%)은 읽기 좋게 소수점 한 자리로 반올림한 값이라,
+// 그걸로 일예산을 계산하면 원 단위가 어긋난다 (예: 실제 11.57845%를 11.6%로 계산 → 101원 차이).
+// 믹스에서 가져온 원본 금액이 그룹마다 다 남아있으면 그 금액 비율을 그대로 써서 정확히 맞춘다.
+// 사용자가 비중을 직접 고쳤거나 수동으로 추가한 그룹이 섞여 있으면 입력된 비중(%)을 그대로 따른다.
+// 나누기를 먼저 해서 비율을 만들면 0.5원 경계에서 부동소수점 오차로 1원이 틀어지므로(121,921.5 → 121,921.4999…),
+// 반드시 곱한 다음에 나눈다.
+function adGroupAmounts(row, totalAmount) {
+  const groups = row.adGroups || [];
+  if(!groups.length) return [];
+  const amount = Number(totalAmount) || 0;
+  const basisKey = row.amountBasis === 'right' ? 'amountRight' : 'amountLeft';
+  const otherKey = basisKey === 'amountLeft' ? 'amountRight' : 'amountLeft';
+  const usable = k => groups.every(g => typeof g[k] === 'number' && g[k] > 0);
+  const key = usable(basisKey) ? basisKey : (usable(otherKey) ? otherKey : null);
+  if(key) {
+    const total = groups.reduce((s, g) => s + g[key], 0);
+    if(total > 0) return groups.map(g => amount * g[key] / total);
+  }
+  return groups.map(g => amount * (Number(g.weight) || 0) / 100);
+}
+
 // 실소진금액을 반영한 잔여예산 기준 일예산(페이싱 재계산)
 function computeMediaRemainingDailyBudget(row) {
   const remainingAmount = (Number(row.amount) || 0) - (Number(row.spent) || 0);
@@ -5196,7 +5217,12 @@ function updateAdGroupField(campId, mediaId, groupId, field, val) {
   const row = camp && camp.mediaRows.find(m => m.id === mediaId);
   const g = row && row.adGroups && row.adGroups.find(x => x.id === groupId);
   if(!g) return;
-  if(field === 'weight') g.weight = Number(val) || 0;
+  if(field === 'weight') {
+    g.weight = Number(val) || 0;
+    // 비중을 직접 고쳤으면 그 숫자가 기준이 되어야 한다. 믹스에서 가져온 원본 금액이 남아 있으면
+    // 일예산은 계속 그 금액 비율로 계산돼서, 입력한 비중과 화면의 일예산이 따로 노는 것처럼 보인다.
+    (row.adGroups || []).forEach(x => { delete x.amountLeft; delete x.amountRight; });
+  }
   else g.name = val;
   save();
   renderCampaignView();
@@ -6503,10 +6529,12 @@ function renderCampaignView() {
           const remainingDaily = hasSpent ? computeMediaRemainingDailyBudget(row) : null;
           const adGroups = row.adGroups || [];
           const totalWeight = adGroups.reduce((s, g) => s + (Number(g.weight) || 0), 0);
-          const adGroupsRowsHtml = adGroups.map(g => {
-            const w = Number(g.weight) || 0;
-            const groupDaily = daily !== null ? daily * w / 100 : null;
-            const groupRemainingDaily = hasSpent && remainingDaily !== null ? remainingDaily * w / 100 : null;
+          const groupAmounts = adGroupAmounts(row, Number(row.amount) || 0);
+          const groupRemainingAmounts = hasSpent ? adGroupAmounts(row, remainingAmount) : [];
+          const adGroupsRowsHtml = adGroups.map((g, gi) => {
+            const groupDaily = days ? computeMediaBaseAmount(groupAmounts[gi] || 0, row) / days : null;
+            const groupRemainingDaily = (hasSpent && remainingDays)
+              ? computeMediaBaseAmount(groupRemainingAmounts[gi] || 0, row) / remainingDays : null;
             return `<div class="ct-adgroup-row">
               <input class="ct-adgroup-name" value="${escHtml(g.name)}" placeholder="광고그룹명 (예: 연령+관심사)" onchange="updateAdGroupField('${camp.id}','${row.id}','${g.id}','name',this.value)">
               <div class="ct-adgroup-weight"><input type="number" min="0" max="100" value="${g.weight || 0}" onchange="updateAdGroupField('${camp.id}','${row.id}','${g.id}','weight',this.value)">%</div>
