@@ -395,73 +395,6 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 @media(max-width:640px){ .header{padding:0 14px} .header-logo span{display:none} .tab-btn span{display:none} .main{padding:12px} #calMonthGrid{padding:8px 6px 12px} .day-cell{min-height:52px;padding:3px} .day-num{font-size:12px;width:22px;height:22px} .event-chip{display:none} .day-cell.has-events::after{content:'';display:block;width:5px;height:5px;background:var(--blue);border-radius:50%;margin:2px auto 0} .form-row{grid-template-columns:1fr} .sidebar{flex-direction:column} .modal{border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:95vh} .modal-overlay{align-items:flex-end;padding:0} .cal-title-text{font-size:15px} .week-header-grid,.week-allday-row,.week-body-grid{grid-template-columns:40px repeat(7,1fr)} }
 @media(max-width:480px){ .home-stats-row{grid-template-columns:1fr} .home-stat-value{font-size:19px} .home-urgent-col{padding:12px 14px} }
 
-/* ── 모바일 최적화 (휴대폰으로 보는 사람이 많아서 따로 정리) ── */
-@media(max-width:700px){
-  /* iOS는 폰트가 16px보다 작은 입력창을 탭하면 화면을 확대해버린다 — 입력칸만 16px로 올려서 막는다 */
-  .form-input, .form-select, .form-textarea, .info-input, .ct-input, .search-input,
-  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="password"], textarea, select { font-size:16px; }
-
-  /* 하단 탭: 탭 수가 줄어든 만큼 터치 영역을 넉넉하게 + 현재 탭 표시를 확실히 */
-  .bottom-nav{ padding-top:2px; }
-  .bottom-tab-btn{ padding:9px 2px 8px; min-height:52px; position:relative; }
-  .bottom-tab-btn span{ font-size:11px; }
-  .bottom-tab-btn.active::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:28px; height:3px; border-radius:0 0 3px 3px; background:var(--blue); }
-  .main{ padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px)); }
-  .toast-wrap{ bottom:calc(72px + env(safe-area-inset-bottom, 0px) + 12px); }
-
-  /* 홈: 고정 높이를 풀어서 내용만큼만 차지하게 (폰에서 빈 카드가 화면을 잡아먹던 문제) */
-  .home-card{ height:auto; max-height:none; }
-  .home-card-body{ max-height:380px; }
-  .home-dash{ gap:14px; }
-  .home-notices-head{ font-size:15px; }
-  .home-stat-card{ padding:14px 16px; }
-  .home-stat-value{ font-size:20px; }
-
-  /* 캠페인 현황: 가로 스크롤은 유지하되(표라서), 글자·여백을 줄여 한 화면에 더 들어오게 */
-  .ct-table{ font-size:12px; }
-  .ct-table th, .ct-table td{ padding:6px 8px; }
-  .ct-status-btn{ font-size:11px; padding:0 8px; height:26px; }
-  .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
-}
-
-/* 컨택포인트/계정 표: 폰에서는 가로 스크롤 대신 카드처럼 세로로 쌓는다 (실 전체가 폰으로 많이 봐서) */
-@media(max-width:640px){
-  .info-table-wrap{ overflow-x:visible; border:none; }
-  .info-table{ min-width:0; }
-  .info-table thead{ display:none; }
-  .info-table tbody, .info-table tr, .info-table td{ display:block; width:100%; }
-  .info-row{ background:#fff; border:1px solid var(--gray-200); border-radius:var(--r-md); margin-bottom:8px; padding:10px 12px 8px; position:relative; }
-  .info-row td{ border:none; padding:3px 0; display:flex; align-items:center; gap:8px; }
-  .info-row td::before{ content:attr(data-label); flex:0 0 58px; font-size:11px; font-weight:600; color:var(--gray-400); }
-  .info-row td .info-input, .info-row td .info-secret{ flex:1; min-width:0; }
-  .info-row td:empty{ display:none; }
-  .info-row .info-del-cell{ position:absolute; top:6px; right:8px; padding:0; width:auto; }
-  .info-row .info-del-cell::before{ content:none; }
-  .info-group-row{ display:block; margin:14px 0 6px; }
-  .info-group-row>td{ display:block; border:none; padding:0; background:transparent; }
-  .info-group-row>td:empty{ display:none; }
-  .info-group-inner{ flex-wrap:wrap; gap:6px; }
-  .info-group-mail-input{ width:100%; margin-top:6px; }
-}
-
-/* 아주 좁은 폰(구형/미니 모델) — 여백과 글자를 한 단계 더 줄인다 */
-@media(max-width:380px){
-  .main{ padding:10px; }
-  .header{ padding:0 10px; }
-  .bottom-tab-btn span{ font-size:10px; }
-  .home-stat-value{ font-size:18px; }
-  .home-card-header{ padding:13px 15px; font-size:13px; }
-  .home-card-body{ padding:11px 13px; }
-  .notice-item{ padding:11px 13px; }
-  .notice-item-title{ font-size:13px; }
-  .modal-header, .modal-body, .modal-footer{ padding-left:16px; padding-right:16px; }
-}
-/* 터치 기기는 hover가 없어서 hover로만 보이던 액션 버튼들(완료/삭제/수정 등)이 영영 안 보이는 문제를 막음 */
-@media (hover: none) {
-  .event-item-actions, .kanban-card-actions, .ct-row-acts, .memo-folder-acts { opacity: 1; }
-  .kca { width:32px; height:32px; }
-  .kca-complete { height:32px; }
-}
 @media(max-width:520px){ .calendar-header{flex-wrap:wrap;gap:8px;padding:12px 14px} .ctf-btn,.vm-btn{padding:0 10px;font-size:12px} }
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:10px} ::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
 
@@ -482,6 +415,13 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .cst-done{background:var(--success-bg);color:var(--green);}
 .campaign-table-wrap{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .campaign-table{min-width:900px;}
+/* 열 폭은 CSS로 둔다 — th에 인라인으로 박아두면 모바일에서 좁히질 못한다 */
+.campaign-table thead th:nth-child(1){width:180px;}
+.campaign-table thead th:nth-child(2){width:110px;}
+.campaign-table thead th:nth-child(3){width:150px;}
+.campaign-table thead th:nth-child(4){width:160px;}
+.campaign-table thead th:nth-child(n+5):nth-child(-n+8){width:84px;}
+.campaign-table thead th:nth-child(9){width:72px;}
 .campaign-table{width:100%;border-collapse:collapse;}
 .campaign-table thead th{background:#fff;padding:10px 16px;font-size:12px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
 .ct-th-status{text-align:center!important;}
@@ -902,6 +842,132 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
 .kc-group-label{font-size:12px;font-weight:700;color:var(--gray-500);flex:1;letter-spacing:.2px;}
 .kc-group-count{font-size:11px;font-weight:600;background:var(--gray-200);color:var(--gray-600);padding:1px 7px;border-radius:20px;}
 .kc-group-header.none-group .kc-group-label{color:var(--gray-400);}
+
+/* ─────────────────────────────────────────────────────────────
+   반응형(모바일) 오버라이드 — 반드시 스타일시트 맨 끝에 둔다.
+   같은 우선순위에서는 나중에 오는 규칙이 이기기 때문에, 위쪽에 두면
+   아래의 기본 규칙(.info-table{min-width:720px} 같은 것)에 그대로 덮인다.
+   ───────────────────────────────────────────────────────────── */
+/* ── 모바일 최적화 (휴대폰으로 보는 사람이 많아서 따로 정리) ── */
+@media(max-width:700px){
+  /* iOS는 폰트가 16px보다 작은 입력창을 탭하면 화면을 확대해버린다 — 입력칸만 16px로 올려서 막는다 */
+  .form-input, .form-select, .form-textarea, .info-input, .ct-input, .search-input,
+  input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], input[type="password"], textarea, select { font-size:16px; }
+
+  /* 하단 탭: 탭 수가 줄어든 만큼 터치 영역을 넉넉하게 + 현재 탭 표시를 확실히 */
+  .bottom-nav{ padding-top:2px; }
+  .bottom-tab-btn{ padding:9px 2px 8px; min-height:52px; position:relative; }
+  .bottom-tab-btn span{ font-size:11px; }
+  .bottom-tab-btn.active::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:28px; height:3px; border-radius:0 0 3px 3px; background:var(--blue); }
+  .main{ padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .toast-wrap{ bottom:calc(72px + env(safe-area-inset-bottom, 0px) + 12px); }
+
+  /* 홈: 고정 높이를 풀어서 내용만큼만 차지하게 (폰에서 빈 카드가 화면을 잡아먹던 문제) */
+  .home-card{ height:auto; max-height:none; }
+  .home-card-body{ max-height:380px; }
+  .home-dash{ gap:14px; }
+  .home-notices-head{ font-size:15px; }
+  .home-stat-card{ padding:14px 16px; }
+  .home-stat-value{ font-size:20px; }
+
+  /* 캠페인 현황: 9열짜리 표라 폰 폭에 다 넣는 건 불가능하다. 열을 줄이고 첫 열(캠페인/매체명)을
+     고정해서 가로로 밀어도 "어느 매체 줄인지"를 잃지 않게 한다.
+     일예산 패널·메모처럼 colspan으로 한 칸을 쓰는 행은 고정 대상에서 빼야 통째로 붙지 않는다. */
+  .campaign-table{ min-width:660px; }
+  .campaign-table thead th:nth-child(1){ width:126px; }
+  .campaign-table thead th:nth-child(2){ width:82px; }
+  .campaign-table thead th:nth-child(3){ width:96px; }
+  .campaign-table thead th:nth-child(4){ width:104px; }
+  .campaign-table thead th:nth-child(n+5):nth-child(-n+8){ width:56px; }
+  .campaign-table thead th:nth-child(9){ width:44px; }
+  .campaign-table thead th{ padding:8px 8px; font-size:11px; }
+  .ct-group-row>td{ padding:7px 8px; }
+  .ct-media-row>td{ padding:8px 8px; font-size:12px; }
+  .ct-status-btn{ min-width:46px; font-size:10px; padding:4px 6px; }
+  .ct-group-name{ font-size:12px; }
+  .ct-period-txt, .ct-period-mini{ font-size:11px; }
+  .campaign-table thead th:first-child,
+  .campaign-table tr>td:first-child:not([colspan]){
+    position:sticky; left:0; z-index:2; background:#fff;
+    box-shadow:1px 0 0 var(--gray-200);
+  }
+  .ct-media-row:hover>td:first-child:not([colspan]){ background:#F5FAFF; }
+  /* 표 폭을 밀어내던 것들: 그룹행 우측 버튼 묶음(240px), nowrap 기간/예산 배지 */
+  .ct-group-acts{ flex-wrap:wrap; justify-content:flex-end; max-width:96px; gap:3px; }
+  .ct-add-media-btn{ height:24px; padding:0 7px; font-size:11px; }
+  /* 캠페인 열이 넓으면 그 아래 매체행은 앞이 통째로 비어 보인다(드래그 손잡이를 감췄으므로).
+     캠페인명을 줄바꿈시켜 열 자체를 좁힌다. */
+  .ct-group-inner{ flex-wrap:wrap; row-gap:4px; }
+  .ct-group-name{ font-size:12px; max-width:none; white-space:normal; word-break:break-all; line-height:1.3; }
+  .ct-group-inner>svg{ display:none; }              /* 폴더 아이콘은 폰에서 자리만 차지 */
+  .ct-drag-handle{ display:none; }                  /* 터치에서 드래그 정렬은 어차피 잘 안 됨 */
+  .ct-period-mini, .ct-period-txt{ white-space:normal; font-size:11px; line-height:1.35; }
+  .ct-budget-total, .ct-budget-check, .ct-stat-mini{ white-space:nowrap; }
+  .ct-group-row>td:nth-child(2)>div{ flex-direction:column; gap:1px; }
+  /* 일예산 패널·메모는 colspan 행이라 표 전체 폭(약 700px)을 따라간다.
+     그대로 두면 정작 중요한 일예산이 가로 스크롤 저편에 숨는다 —
+     화면 왼쪽에 붙여서 옆으로 밀어도 항상 보이게 한다. */
+  .ct-budget-panel, .ct-note-wrap, .ct-no-media{
+    position:sticky; left:0; width:min(100%, calc(100vw - 28px));
+  }
+  .ct-note-row>td{ padding:6px 8px 10px; }
+  /* 패널 안쪽 그리드가 180+150+220px 고정이라 폰 폭에 절대 안 들어간다 — 폭을 다시 나눈다.
+     금액만 nowrap으로 묶어두면(숫자가 중간에 끊기면 못 읽으니) 나머지는 줄바꿈으로 흡수된다. */
+  .ct-budget-panel{ padding:12px 10px 14px; }
+  .ct-budget-grid{ grid-template-columns:62px 92px 78px 1fr; gap:4px 6px; }
+  .ct-budget-head span{ font-size:10px; line-height:1.25; }
+  .ct-budget-body span{ font-size:12px; white-space:normal; }
+  .ct-budget-body b{ white-space:nowrap; }
+  .ct-budget-daily{ gap:4px; }
+  .ct-budget-daily b{ font-size:13px; }
+  .ct-budget-mode-btn{ height:22px; padding:0 7px; font-size:10px; }
+  .ct-spent-input{ width:100%; }
+  .ct-adgroup-row{ gap:6px; }
+  .ct-adgroup-name{ font-size:12px; height:28px; padding:0 8px; }
+  .ct-adgroup-weight input{ width:44px; }
+  .ct-adgroup-daily{ font-size:11px; }
+  .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
+}
+
+/* 컨택포인트/계정 표: 폰에서는 가로 스크롤 대신 카드처럼 세로로 쌓는다 (실 전체가 폰으로 많이 봐서) */
+@media(max-width:640px){
+  .info-table-wrap{ overflow-x:visible; border:none; }
+  .info-table{ min-width:0; }
+  .info-table thead{ display:none; }
+  .info-table tbody, .info-table tr, .info-table td{ display:block; width:100%; }
+  .info-row{ background:#fff; border:1px solid var(--gray-200); border-radius:var(--r-md); margin-bottom:8px; padding:10px 12px 8px; position:relative; }
+  .info-row td{ border:none; padding:3px 0; display:flex; align-items:center; gap:8px; }
+  .info-row td::before{ content:attr(data-label); flex:0 0 58px; font-size:11px; font-weight:600; color:var(--gray-400); }
+  .info-row td .info-input, .info-row td .info-secret{ flex:1; min-width:0; }
+  .info-row td:empty{ display:none; }
+  .info-row .info-del-cell{ position:absolute; top:6px; right:8px; padding:0; width:auto; }
+  .info-row .info-del-cell::before{ content:none; }
+  .info-group-row{ display:block; margin:14px 0 6px; }
+  .info-group-row>td{ display:block; border:none; padding:0; background:transparent; }
+  .info-group-row>td:empty{ display:none; }
+  .info-group-inner{ flex-wrap:wrap; gap:6px; }
+  .info-group-mail-input{ width:100%; margin-top:6px; }
+}
+
+/* 아주 좁은 폰(구형/미니 모델) — 여백과 글자를 한 단계 더 줄인다 */
+@media(max-width:380px){
+  .main{ padding:10px; }
+  .header{ padding:0 10px; }
+  .bottom-tab-btn span{ font-size:10px; }
+  .home-stat-value{ font-size:18px; }
+  .home-card-header{ padding:13px 15px; font-size:13px; }
+  .home-card-body{ padding:11px 13px; }
+  .notice-item{ padding:11px 13px; }
+  .notice-item-title{ font-size:13px; }
+  .modal-header, .modal-body, .modal-footer{ padding-left:16px; padding-right:16px; }
+}
+/* 터치 기기는 hover가 없어서 hover로만 보이던 액션 버튼들(완료/삭제/수정 등)이 영영 안 보이는 문제를 막음 */
+@media (hover: none) {
+  .event-item-actions, .kanban-card-actions, .ct-row-acts, .memo-folder-acts { opacity: 1; }
+  .kca { width:32px; height:32px; }
+  .kca-complete { height:32px; }
+}
+
 </style>
 </head>
 <body>
@@ -1314,15 +1380,15 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <table class="campaign-table" id="campaignTable">
           <thead>
             <tr>
-              <th class="ct-th-status" style="width:180px">캠페인</th>
-              <th class="ct-th-status" style="width:110px">총예산</th>
-              <th class="ct-th-status" style="width:150px">매체</th>
-              <th class="ct-th-status" style="width:160px">기간</th>
-              <th class="ct-th-status" style="width:84px">세팅</th>
-              <th class="ct-th-status" style="width:84px">라이브</th>
-              <th class="ct-th-status" style="width:84px">라이브 종료</th>
-              <th class="ct-th-status" style="width:84px">게재보고</th>
-              <th style="width:72px"></th>
+              <th class="ct-th-status">캠페인</th>
+              <th class="ct-th-status">총예산</th>
+              <th class="ct-th-status">매체</th>
+              <th class="ct-th-status">기간</th>
+              <th class="ct-th-status">세팅</th>
+              <th class="ct-th-status">라이브</th>
+              <th class="ct-th-status">라이브 종료</th>
+              <th class="ct-th-status">게재보고</th>
+              <th class="ct-th-acts"></th>
             </tr>
           </thead>
           <tbody id="campaignTableBody"></tbody>
