@@ -5216,14 +5216,24 @@ function computeMediaDailyBudget(row) {
 // 사용자가 비중을 직접 고쳤거나 수동으로 추가한 그룹이 섞여 있으면 입력된 비중(%)을 그대로 따른다.
 // 나누기를 먼저 해서 비율을 만들면 0.5원 경계에서 부동소수점 오차로 1원이 틀어지므로(121,921.5 → 121,921.4999…),
 // 반드시 곱한 다음에 나눈다.
+// 배분 기준으로 쓸 금액 칼럼을 고른다. 모든 그룹에 값이 있어야 비율이 성립하므로,
+// 하나라도 비어 있으면 null을 돌려주고 호출부는 비중(%)으로 돌아간다.
+function adGroupAmountKey(row) {
+  const groups = row.adGroups || [];
+  if(!groups.length) return null;
+  const basisKey = row.amountBasis === 'right' ? 'amountRight' : 'amountLeft';
+  const otherKey = basisKey === 'amountLeft' ? 'amountRight' : 'amountLeft';
+  const usable = k => groups.every(g => typeof g[k] === 'number' && g[k] > 0);
+  if(usable(basisKey)) return basisKey;
+  if(usable(otherKey)) return otherKey;
+  return null;
+}
+
 function adGroupAmounts(row, totalAmount) {
   const groups = row.adGroups || [];
   if(!groups.length) return [];
   const amount = Number(totalAmount) || 0;
-  const basisKey = row.amountBasis === 'right' ? 'amountRight' : 'amountLeft';
-  const otherKey = basisKey === 'amountLeft' ? 'amountRight' : 'amountLeft';
-  const usable = k => groups.every(g => typeof g[k] === 'number' && g[k] > 0);
-  const key = usable(basisKey) ? basisKey : (usable(otherKey) ? otherKey : null);
+  const key = adGroupAmountKey(row);
   if(key) {
     const total = groups.reduce((s, g) => s + g[key], 0);
     if(total > 0) return groups.map(g => amount * g[key] / total);
@@ -5299,6 +5309,13 @@ function deleteAdGroup(campId, mediaId, groupId) {
   const row = camp && camp.mediaRows.find(m => m.id === mediaId);
   if(!row || !row.adGroups) return;
   row.adGroups = row.adGroups.filter(g => g.id !== groupId);
+  // 남은 그룹들이 믹스 금액을 그대로 갖고 있으면 일예산은 그 금액 비율로 다시 나뉜다.
+  // 비중(%)만 지우기 전 값으로 남겨두면 화면의 비중과 일예산이 따로 놀므로 같이 다시 계산한다.
+  const key = adGroupAmountKey(row);
+  if(key) {
+    const total = row.adGroups.reduce((s, g) => s + g[key], 0);
+    if(total > 0) row.adGroups.forEach(g => { g.weight = Math.round((g[key] / total) * 1000) / 10; });
+  }
   save();
   renderCampaignView();
 }
@@ -6594,7 +6611,13 @@ function renderCampaignView() {
           const remainingDays = hasSpent ? mediaRemainingDays(row) : null;
           const remainingDaily = hasSpent ? computeMediaRemainingDailyBudget(row) : null;
           const adGroups = row.adGroups || [];
-          const totalWeight = adGroups.reduce((s, g) => s + (Number(g.weight) || 0), 0);
+          // 비중은 그룹마다 따로 소수점 한 자리로 반올림한 값이라, 더하면 99.9나 100.1이 되는 게 정상이고
+          // 0.1 단위끼리 더하는 것만으로도 99.89999999999999 같은 값이 나온다 — 표시용으로 한 번 더 반올림한다.
+          // 믹스 금액으로 나눈 경우엔 배분이 원 단위까지 정확하므로 경고할 일이 아니다.
+          // 경고는 사용자가 비중을 직접 입력해서 100을 벗어났을 때만 의미가 있다.
+          const splitByAmount = adGroupAmountKey(row) !== null;
+          const weightSum = Math.round(adGroups.reduce((s, g) => s + (Number(g.weight) || 0), 0) * 10) / 10;
+          const totalWeight = splitByAmount ? 100 : weightSum;
           const groupAmounts = adGroupAmounts(row, Number(row.amount) || 0);
           const groupRemainingAmounts = hasSpent ? adGroupAmounts(row, remainingAmount) : [];
           const adGroupsRowsHtml = adGroups.map((g, gi) => {
