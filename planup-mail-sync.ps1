@@ -59,7 +59,7 @@ function Save-Cred([string]$nick, [string]$pw) {
   } | Export-Clixml -Path $CredFile
 }
 
-function Load-Cred {
+function Get-SavedCred {
   if (-not (Test-Path $CredFile)) { return $null }
   try {
     $c = Import-Clixml -Path $CredFile
@@ -86,7 +86,9 @@ if ($Uninstall) {
 
 # ── 작업 스케줄러 등록 ────────────────────────────────────────────
 if ($InstallTask) {
-  if (-not $Nickname) { throw "-Nickname 이 필요해요 (예: -Nickname sewoning)" }
+  # 바로가기(.bat)로 더블클릭해서 들어오는 경우엔 인자가 없으므로 여기서 물어본다
+  if (-not $Nickname) { $Nickname = (Read-Host 'PlanUP 닉네임').Trim() }
+  if (-not $Nickname) { throw '닉네임이 필요해요' }
 
   # 등록 시점에 비밀번호를 한 번 받아 암호화해 둔다. 이후로는 안 물어본다.
   if (-not $Password) {
@@ -192,10 +194,16 @@ foreach ($store in $ns.Folders) {
 Write-Host ""
 Write-Host ("메일 {0}건 (최근 {1}일)" -f $items.Count, $Days) -ForegroundColor Green
 
-# 스케줄러가 부를 땐 인자 없이 돌아오므로, 저장해둔 계정을 쓴다
+# 스케줄러가 부를 땐 인자 없이 돌아오므로, 저장해둔 계정을 쓴다.
+# 저장된 게 없고 사람이 직접 돌린 거면 물어본다 (.bat 더블클릭한 경우).
 if (-not $Nickname -and -not $Preview) {
-  $saved = Load-Cred
-  if ($saved) { $Nickname = $saved.nickname; $Password = $saved.password }
+  $saved = Get-SavedCred
+  if ($saved) {
+    $Nickname = $saved.nickname
+    $Password = $saved.password
+  } elseif ([Environment]::UserInteractive) {
+    $Nickname = (Read-Host 'PlanUP 닉네임').Trim()
+  }
 }
 
 if ($Preview -or -not $Nickname) {
@@ -209,7 +217,7 @@ if ($Preview -or -not $Nickname) {
 
 # ── PlanUP 로그인 ────────────────────────────────────────────────
 if (-not $Password) {
-  $saved = Load-Cred
+  $saved = Get-SavedCred
   if ($saved -and $saved.nickname -eq $Nickname) {
     $Password = $saved.password
   } else {
