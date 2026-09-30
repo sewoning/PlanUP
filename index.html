@@ -399,6 +399,33 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:10px} ::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
 
 
+/* ── 계산기 ── */
+.calc-modal{max-width:320px;}
+.calc-display{background:var(--gray-50);border-radius:var(--r-md);padding:12px 14px;margin-bottom:12px;text-align:right;}
+.calc-expr{font-size:12px;color:var(--gray-400);min-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;}
+.calc-entry{font-size:28px;font-weight:700;color:var(--gray-900);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;}
+.calc-entry.long{font-size:22px;}
+.calc-entry.longer{font-size:18px;}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.calc-btn{height:46px;border:1.5px solid var(--gray-200);border-radius:var(--r-sm);background:#fff;font-family:inherit;font-size:16px;font-weight:600;color:var(--gray-800);cursor:pointer;transition:background .1s,border-color .1s;}
+.calc-btn:hover{background:var(--gray-100);}
+.calc-btn:active{background:var(--gray-200);}
+.calc-btn.op{color:var(--blue);border-color:#CFE4FA;}
+.calc-btn.op.armed{background:var(--blue);border-color:var(--blue);color:#fff;}
+.calc-btn.fn{background:var(--gray-50);color:var(--gray-600);font-size:14px;}
+.calc-btn.eq{background:var(--blue);border-color:var(--blue);color:#fff;}
+.calc-btn.eq:hover{background:var(--blue-dark);}
+.calc-vat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;}
+.calc-vat-row .calc-btn{height:34px;font-size:12px;}
+.calc-hist{margin-top:12px;border-top:1px solid var(--gray-100);padding-top:10px;display:flex;flex-direction:column;gap:2px;max-height:132px;overflow-y:auto;}
+.calc-hist-empty{font-size:12px;color:var(--gray-300);text-align:center;padding:6px 0;}
+.calc-hist-item{display:flex;justify-content:space-between;gap:10px;align-items:baseline;border:none;background:none;font-family:inherit;cursor:pointer;padding:5px 7px;border-radius:5px;text-align:left;width:100%;}
+.calc-hist-item:hover{background:var(--gray-50);}
+.calc-hist-expr{font-size:11px;color:var(--gray-400);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.calc-hist-val{font-size:12.5px;font-weight:700;color:var(--gray-800);white-space:nowrap;}
+.calc-foot{display:flex;gap:6px;margin-top:10px;}
+.calc-foot .btn{flex:1;justify-content:center;}
+
 /* ── Auth Gate ── */
 .auth-gate { position:fixed; inset:0; z-index:1000; background:var(--gray-100); display:flex; align-items:center; justify-content:center; padding:20px; }
 .auth-card { background:#fff; border-radius:var(--r-xl); box-shadow:var(--shadow-lg); padding:32px 28px; width:100%; max-width:360px; display:flex; flex-direction:column; gap:14px; }
@@ -1035,6 +1062,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <span>검색</span>
     </button>
+    <button class="btn btn-ghost btn-sm" id="calcHeaderBtn" onclick="openCalc()" title="계산기 (Ctrl+/)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11"/><line x1="12" y1="11" x2="12" y2="11"/><line x1="16" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="8" y2="15"/><line x1="12" y1="15" x2="12" y2="15"/><line x1="16" y1="15" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+      <span>계산기</span>
+    </button>
     <button class="btn btn-ghost btn-sm" id="workspaceBtn" onclick="toggleWorkspace()" title="공유 시트 열기 / 내 데이터로 돌아가기">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span id="workspaceBtnText">공유</span>
@@ -1492,6 +1523,58 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
       <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
     </div>
     <div class="modal-body" id="historyBody"></div>
+  </div>
+</div>
+
+<!-- ── 계산기 ──
+     윈도우 계산기가 뜨는 데 오래 걸려서, 화면 전환 없이 바로 열리는 걸 따로 둔다.
+     숫자패드로 그대로 칠 수 있게 키보드 입력을 받는다. -->
+<div class="modal-overlay" id="calcModal" onclick="if(event.target===this)closeCalc()">
+  <div class="modal calc-modal">
+    <div class="modal-header">
+      <div class="modal-title">계산기</div>
+      <button class="modal-close" onclick="closeCalc()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="calc-display">
+        <div class="calc-expr" id="calcExpr"></div>
+        <div class="calc-entry" id="calcEntry">0</div>
+      </div>
+      <div class="calc-vat-row">
+        <button class="calc-btn fn" onclick="calcVat('add')" title="부가세 10% 더하기 (×1.1)">VAT +</button>
+        <button class="calc-btn fn" onclick="calcVat('sub')" title="부가세 10% 빼기 (÷1.1)">VAT −</button>
+        <button class="calc-btn fn" onclick="calcPercent()" title="퍼센트">%</button>
+      </div>
+      <div class="calc-grid">
+        <button class="calc-btn fn" onclick="calcClear()">C</button>
+        <button class="calc-btn fn" onclick="calcSign()">±</button>
+        <button class="calc-btn fn" onclick="calcBack()" title="한 글자 지우기">←</button>
+        <button class="calc-btn op" data-op="/" onclick="calcOp('/')">÷</button>
+
+        <button class="calc-btn" onclick="calcDigit('7')">7</button>
+        <button class="calc-btn" onclick="calcDigit('8')">8</button>
+        <button class="calc-btn" onclick="calcDigit('9')">9</button>
+        <button class="calc-btn op" data-op="*" onclick="calcOp('*')">×</button>
+
+        <button class="calc-btn" onclick="calcDigit('4')">4</button>
+        <button class="calc-btn" onclick="calcDigit('5')">5</button>
+        <button class="calc-btn" onclick="calcDigit('6')">6</button>
+        <button class="calc-btn op" data-op="-" onclick="calcOp('-')">−</button>
+
+        <button class="calc-btn" onclick="calcDigit('1')">1</button>
+        <button class="calc-btn" onclick="calcDigit('2')">2</button>
+        <button class="calc-btn" onclick="calcDigit('3')">3</button>
+        <button class="calc-btn op" data-op="+" onclick="calcOp('+')">+</button>
+
+        <button class="calc-btn" onclick="calcDigit('0')" style="grid-column:span 2">0</button>
+        <button class="calc-btn" onclick="calcDot()">.</button>
+        <button class="calc-btn eq" onclick="calcEquals()">=</button>
+      </div>
+      <div class="calc-foot">
+        <button class="btn btn-ghost btn-sm" onclick="calcCopy()" title="쉼표 없이 복사돼서 엑셀에 바로 붙여넣을 수 있어요">결과 복사</button>
+      </div>
+      <div class="calc-hist" id="calcHist"></div>
+    </div>
   </div>
 </div>
 
@@ -3830,6 +3913,208 @@ function addQuickTask(inputId) {
 }
 
 // ── Modal helpers ──────────────────────────────────────────────
+// ── 계산기 ─────────────────────────────────────────────────────
+// 윈도우 계산기를 띄우는 것보다 빠르게 쓰려고 만든 거라, 열자마자 숫자패드로
+// 바로 칠 수 있어야 한다. 그래서 버튼 클릭과 키보드 입력이 같은 함수로 들어온다.
+// computed: 지금 보이는 값이 계산 결과인지(true) 사람이 치고 있는 중인지(false).
+// 치는 중에는 "12." 같은 걸 그대로 보여줘야 해서 구분이 필요하다.
+const calc = { entry: '0', prev: null, op: null, freshEntry: true, computed: false, history: [] };
+
+// 0.1 + 0.2 가 0.30000000000000004 로 보이는 걸 막는다.
+// 중요한 건 이걸 "표시할 때만" 한다는 것 — 계산 중간마다 반올림하면 오차가 쌓여서
+// 1/3*3 이 0.999999999999 가 된다. 내부에는 늘 정밀한 값을 두고, 눈에 보일 때만 줄인다.
+function calcRound(n) {
+  if(!isFinite(n)) return n;
+  const r = parseFloat(n.toPrecision(12));
+  return Object.is(r, -0) ? 0 : r;
+}
+
+// 화면에 찍을 문자열. 계산 결과면 반올림하고, 입력 중이면 친 그대로 둔다.
+function calcShown() {
+  return calc.computed ? String(calcRound(Number(calc.entry))) : calc.entry;
+}
+
+// 표시용 천단위 쉼표. 입력 중인 소수점("12." 같은 것)은 그대로 살려둔다.
+function calcFormat(str) {
+  if(str === '' || str === '-') return str || '0';
+  const neg = str.startsWith('-');
+  const body = neg ? str.slice(1) : str;
+  const [int, dec] = body.split('.');
+  const withCommas = (int || '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (neg ? '-' : '') + withCommas + (dec !== undefined ? '.' + dec : '');
+}
+
+const CALC_OP_LABEL = { '+': '+', '-': '−', '*': '×', '/': '÷' };
+
+function renderCalc() {
+  const entryEl = document.getElementById('calcEntry');
+  if(!entryEl) return;
+  const shown = calcFormat(calcShown());
+  entryEl.textContent = shown;
+  // 자릿수가 길어지면 글자를 줄여서 잘리지 않게
+  entryEl.className = 'calc-entry' + (shown.length > 16 ? ' longer' : shown.length > 12 ? ' long' : '');
+
+  document.getElementById('calcExpr').textContent =
+    calc.op ? `${calcFormat(String(calcRound(calc.prev)))} ${CALC_OP_LABEL[calc.op]}` : '';
+
+  // 지금 눌린 연산자를 표시해서 뭘 누르다 말았는지 보이게
+  document.querySelectorAll('.calc-btn.op').forEach(b => {
+    b.classList.toggle('armed', calc.op === b.dataset.op && calc.freshEntry);
+  });
+
+  const hist = document.getElementById('calcHist');
+  hist.innerHTML = calc.history.length
+    ? calc.history.map((h, i) => `<button class="calc-hist-item" onclick="calcUseHistory(${i})" title="이 결과 불러오기">
+        <span class="calc-hist-expr">${escHtml(h.expr)}</span>
+        <span class="calc-hist-val">${escHtml(calcFormat(String(calcRound(h.value))))}</span>
+      </button>`).join('')
+    : '<div class="calc-hist-empty">계산 기록이 여기에 쌓여요</div>';
+}
+
+function calcDigit(d) {
+  if(calc.freshEntry || calc.computed) { calc.entry = d; calc.freshEntry = false; calc.computed = false; }
+  else if(calc.entry === '0') calc.entry = d;
+  else if(calc.entry === '-0') calc.entry = '-' + d;
+  else calc.entry += d;
+  renderCalc();
+}
+
+function calcDot() {
+  if(calc.freshEntry || calc.computed) { calc.entry = '0.'; calc.freshEntry = false; calc.computed = false; }
+  else if(!calc.entry.includes('.')) calc.entry += '.';
+  renderCalc();
+}
+
+function calcBack() {
+  if(calc.freshEntry) return;
+  if(calc.computed) { calc.entry = String(calcRound(Number(calc.entry))); calc.computed = false; }
+  calc.entry = calc.entry.length <= 1 || (calc.entry.length === 2 && calc.entry.startsWith('-'))
+    ? '0' : calc.entry.slice(0, -1);
+  if(calc.entry === '0') calc.freshEntry = true;
+  renderCalc();
+}
+
+function calcSign() {
+  if(calc.computed) { calc.entry = String(calcRound(Number(calc.entry))); }
+  calc.entry = calc.entry.startsWith('-') ? calc.entry.slice(1) : '-' + calc.entry;
+  renderCalc();
+}
+
+function calcClear() {
+  calc.entry = '0'; calc.prev = null; calc.op = null; calc.freshEntry = true; calc.computed = false;
+  renderCalc();
+}
+
+// 여기서는 반올림하지 않는다 — 정리는 화면에 찍을 때 한 번만 한다
+function calcApply(a, op, b) {
+  if(op === '+') return a + b;
+  if(op === '-') return a - b;
+  if(op === '*') return a * b;
+  if(op === '/') return b === 0 ? NaN : a / b;
+  return b;
+}
+
+function calcPushHistory(expr, value) {
+  calc.history.unshift({ expr, value });
+  if(calc.history.length > 12) calc.history.pop();
+}
+
+function calcOp(op) {
+  const cur = Number(calc.entry) || 0;
+  // 연산자를 연달아 누르면 마지막 것만 쓴다 (계산은 안 함)
+  if(calc.op !== null && calc.freshEntry) { calc.op = op; renderCalc(); return; }
+  if(calc.op !== null) {
+    const r = calcApply(calc.prev, calc.op, cur);
+    if(!isFinite(r)) { calcShowError(); return; }
+    calc.prev = r;
+    calc.entry = String(r);
+  } else {
+    calc.prev = cur;
+  }
+  calc.op = op;
+  calc.freshEntry = true;
+  calc.computed = true;
+  renderCalc();
+}
+
+function calcEquals() {
+  if(calc.op === null) return;
+  const cur = Number(calc.entry) || 0;
+  const r = calcApply(calc.prev, calc.op, cur);
+  if(!isFinite(r)) { calcShowError(); return; }
+  calcPushHistory(`${calcFormat(String(calcRound(calc.prev)))} ${CALC_OP_LABEL[calc.op]} ${calcFormat(String(calcRound(cur)))}`, r);
+  calc.entry = String(r);
+  calc.prev = null; calc.op = null; calc.freshEntry = true; calc.computed = true;
+  renderCalc();
+}
+
+function calcShowError() {
+  showToast('0으로 나눌 수 없어요');
+  calcClear();
+}
+
+// 윈도우 계산기와 같은 방식: 더하기·빼기 중이면 "앞 숫자의 n%", 곱하기·나누기나
+// 단독일 때는 그냥 n/100.
+function calcPercent() {
+  const cur = Number(calc.entry) || 0;
+  const v = (calc.op === '+' || calc.op === '-')
+    ? (calc.prev || 0) * cur / 100
+    : cur / 100;
+  calc.entry = String(v);
+  calc.freshEntry = false; calc.computed = true;
+  renderCalc();
+}
+
+// 매체비는 부가세 계산이 늘 따라붙어서 따로 뺐다
+function calcVat(dir) {
+  const cur = Number(calc.entry) || 0;
+  const v = dir === 'add' ? cur * 1.1 : cur / 1.1;
+  calcPushHistory(`${calcFormat(String(calcRound(cur)))} ${dir === 'add' ? 'VAT+' : 'VAT−'}`, v);
+  calc.entry = String(v);
+  calc.prev = null; calc.op = null; calc.freshEntry = true; calc.computed = true;
+  renderCalc();
+}
+
+function calcUseHistory(i) {
+  const h = calc.history[i];
+  if(!h) return;
+  calc.entry = String(h.value);
+  calc.freshEntry = true; calc.computed = true;   // 이어서 숫자를 치면 새로 시작하게
+  renderCalc();
+}
+
+function calcCopy() {
+  // 엑셀에 바로 붙일 수 있게 쉼표 없이 복사한다
+  const text = calcShown();
+  const done = () => showToast(`복사했어요 · ${calcFormat(text)}`);
+  if(navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => showToast('복사하지 못했어요'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e) { showToast('복사하지 못했어요'); }
+    ta.remove();
+  }
+}
+
+function openCalc() { openModal('calcModal'); renderCalc(); }
+function closeCalc() { closeModal('calcModal'); }
+
+// 열려 있는 동안은 숫자패드가 그대로 먹어야 한다 (그게 이걸 만든 이유라서)
+function calcHandleKey(e) {
+  if(!document.getElementById('calcModal').classList.contains('open')) return false;
+  const k = e.key;
+  if(k >= '0' && k <= '9') { calcDigit(k); return true; }
+  if(k === '.' || k === ',') { calcDot(); return true; }
+  if(k === '+' || k === '-' || k === '*' || k === '/') { calcOp(k); return true; }
+  if(k === 'Enter' || k === '=') { calcEquals(); return true; }
+  if(k === 'Backspace') { calcBack(); return true; }
+  if(k === '%') { calcPercent(); return true; }
+  if(k === 'Escape') { closeCalc(); return true; }
+  if(k === 'Delete' || k === 'c' || k === 'C') { calcClear(); return true; }
+  return false;
+}
+
 function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open'); document.body.style.overflow='';
@@ -4549,6 +4834,17 @@ document.addEventListener('keydown', e => {
     openSearch();
     return;
   }
+  // Ctrl+/ 로 계산기 열기
+  if((e.ctrlKey || e.metaKey) && e.key === '/') {
+    e.preventDefault();
+    openCalc();
+    return;
+  }
+  // 계산기가 열려 있으면 숫자·연산자 키를 계산기가 먼저 가져간다.
+  // 단, 입력칸에 포커스가 있으면 글자를 뺏으면 안 된다.
+  const typing = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '')
+    || (document.activeElement && document.activeElement.isContentEditable);
+  if(!typing && calcHandleKey(e)) { e.preventDefault(); return; }
   if(e.key!=='Escape') return;
   if(document.getElementById('searchModal').classList.contains('open')) { closeSearch(); return; }
   if(document.getElementById('teamPwModal').classList.contains('open')) { closeTeamPwModal(); return; }
