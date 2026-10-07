@@ -526,13 +526,21 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .ct-adgroup-weight-total{font-weight:700;}
 .ct-adgroup-weight-total.ok{color:var(--green);}
 .ct-adgroup-weight-total.warn{color:var(--orange);}
-.ct-adgroup-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--gray-100);}
+.ct-adgroup-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:6px 0;border-bottom:1px solid var(--gray-100);}
 .ct-adgroup-row:last-child{border-bottom:none;}
-.ct-adgroup-name{flex:1;min-width:0;height:30px;border:1.5px solid var(--gray-200);border-radius:var(--r-sm);padding:0 10px;font-size:13px;font-family:inherit;color:var(--gray-900);}
+.ct-adgroup-name{flex:1 1 200px;min-width:0;max-width:420px;height:30px;border:1.5px solid var(--gray-200);border-radius:var(--r-sm);padding:0 10px;font-size:13px;font-family:inherit;color:var(--gray-900);}
 .ct-adgroup-name:focus{border-color:var(--blue);outline:none;}
 .ct-adgroup-weight{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--gray-500);flex-shrink:0;}
 .ct-adgroup-weight input{width:52px;height:26px;border:1.5px solid var(--gray-200);border-radius:6px;text-align:center;font-family:inherit;font-size:12px;}
 .ct-adgroup-weight input:focus{border-color:var(--blue);outline:none;}
+.ct-adgroup-period{display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.ct-adgroup-period input[type=date]{width:124px;height:26px;border:1.5px solid var(--gray-200);border-radius:6px;padding:0 5px;font-family:inherit;font-size:11.5px;color:var(--gray-500);background:#fff;}
+.ct-adgroup-period input[type=date]:focus{border-color:var(--blue);outline:none;}
+/* 그룹이 자기 기간을 따로 가진 경우만 진하게 — 나머지는 매체 기간을 비춰주는 것뿐이라 흐리게 둔다 */
+.ct-adgroup-period.own input[type=date]{color:var(--gray-900);border-color:#CFE4FA;}
+.ct-adgroup-period-sep{font-size:11px;color:var(--gray-300);}
+.ct-adgroup-days{font-size:11px;font-weight:600;color:var(--gray-400);min-width:30px;text-align:right;}
+.ct-adgroup-period.own .ct-adgroup-days{color:var(--blue);}
 .ct-adgroup-daily{font-size:12px;color:var(--gray-600);white-space:nowrap;flex-shrink:0;}
 .ct-adgroup-daily b{color:var(--blue-dark);}
 .campaign-empty-wrap{padding:60px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;}
@@ -5513,6 +5521,27 @@ function computeMediaDailyBudget(row) {
 // 사용자가 비중을 직접 고쳤거나 수동으로 추가한 그룹이 섞여 있으면 입력된 비중(%)을 그대로 따른다.
 // 나누기를 먼저 해서 비율을 만들면 0.5원 경계에서 부동소수점 오차로 1원이 틀어지므로(121,921.5 → 121,921.4999…),
 // 반드시 곱한 다음에 나눈다.
+// 광고그룹이 실제로 쓰는 기간. 그룹에 따로 적힌 게 있으면 그걸 쓰고, 없으면 매체 기간을 따라간다.
+// (믹스에서 그룹별 기간이 안 잡히거나 매체 기간과 같으면 비워두기 때문에, 대부분은 매체 기간이다)
+function adGroupPeriod(group, row) {
+  const g = group || {};
+  return {
+    startDate: g.startDate || row.startDate || null,
+    endDate: g.endDate || row.endDate || null,
+    own: !!(g.startDate || g.endDate),   // 그룹이 자기 기간을 갖고 있는지
+  };
+}
+
+// 그룹 집행일수. 그룹 기간이 매체 기간을 벗어나는 건 막지 않는다 —
+// 믹스에 그렇게 적혀 있으면 그게 맞는 경우가 있어서(선행 티저 등), 숫자는 적힌 대로 따른다.
+function adGroupExecDays(group, row) {
+  return mediaExecDays(adGroupPeriod(group, row));
+}
+
+function adGroupRemainingDays(group, row) {
+  return mediaRemainingDays(adGroupPeriod(group, row));
+}
+
 // 배분 기준으로 쓸 금액 칼럼을 고른다. 모든 그룹에 값이 있어야 비율이 성립하므로,
 // 하나라도 비어 있으면 null을 돌려주고 호출부는 비중(%)으로 돌아간다.
 function adGroupAmountKey(row) {
@@ -5590,7 +5619,18 @@ function updateAdGroupField(campId, mediaId, groupId, field, val) {
   const row = camp && camp.mediaRows.find(m => m.id === mediaId);
   const g = row && row.adGroups && row.adGroups.find(x => x.id === groupId);
   if(!g) return;
-  if(field === 'weight') {
+  if(field === 'startDate' || field === 'endDate') {
+    // 화면의 날짜칸에는 (그룹에 따로 없으면) 매체 기간이 들어가 있다. 그걸 그대로 두고
+    // 한쪽만 고치면 나머지 한쪽이 비어버리므로, 지금 보이던 값을 함께 확정해준다.
+    const cur = adGroupPeriod(g, row);
+    g.startDate = cur.startDate;
+    g.endDate = cur.endDate;
+    g[field] = val || null;
+    // 결국 매체 기간과 같아졌으면 따로 들고 있지 않는다 (매체 기간을 고치면 다시 따라가게)
+    if(g.startDate === row.startDate && g.endDate === row.endDate) { g.startDate = null; g.endDate = null; }
+  }
+  else if(field === 'resetPeriod') { g.startDate = null; g.endDate = null; }
+  else if(field === 'weight') {
     g.weight = Number(val) || 0;
     // 비중을 직접 고쳤으면 그 숫자가 기준이 되어야 한다. 믹스에서 가져온 원본 금액이 남아 있으면
     // 일예산은 계속 그 금액 비율로 계산돼서, 입력한 비중과 화면의 일예산이 따로 노는 것처럼 보인다.
@@ -5919,7 +5959,15 @@ function mmComputeAdGroupsFromEntries(entries, basis) {
   if(valid.length < 2) return [];
   const total = valid.reduce((s, e) => s + e[key], 0);
   if(total <= 0) return [];
-  return valid.map(e => ({ name: e.name, weight: Math.round((e[key] / total) * 1000) / 10, amountLeft: e.amountLeft, amountRight: e.amountRight }));
+  return valid.map(e => ({
+    name: e.name,
+    weight: Math.round((e[key] / total) * 1000) / 10,
+    amountLeft: e.amountLeft,
+    amountRight: e.amountRight,
+    // 그룹마다 집행 기간이 다르면 일예산도 달라져야 해서 같이 들고 간다
+    startDate: e.startDate || null,
+    endDate: e.endDate || null,
+  }));
 }
 
 // 같은 이름으로 잡힌 슬롯은 하나로 합친다. 이름이 겹치면 화면에 똑같은 줄이 여러 개 뜨는데,
@@ -5932,6 +5980,9 @@ function mmMergeSlotEntriesByName(entries) {
     ['amountLeft', 'amountRight'].forEach(k => {
       if(typeof e[k] === 'number') hit[k] = (typeof hit[k] === 'number' ? hit[k] : 0) + e[k];
     });
+    // 같은 이름의 줄이 여러 개면 그 줄들을 전부 덮는 기간이 그 그룹의 기간이다
+    if(e.startDate && (!hit.startDate || e.startDate < hit.startDate)) hit.startDate = e.startDate;
+    if(e.endDate && (!hit.endDate || e.endDate > hit.endDate)) hit.endDate = e.endDate;
   });
   return merged;
 }
@@ -6071,6 +6122,7 @@ function parseMediaMixWorkbook(wb) {
         let start = null, end = null;
         const slotEntries = []; // 광고그룹(상품/타겟팅 슬롯)별 배분 후보
         let carriedGroupLabel = null; // 제품/브랜드 묶음 라벨 (묶음 첫 줄에만 적혀 있어 아래 줄로 이어감)
+        let carriedPeriod = null;     // 기간도 묶음 첫 줄에만 적는 양식이 있어 같이 이어감
         for(let rr = r; rr <= blockEnd; rr++) {
           // blockEnd는 "Sub total" 행이다. 여기엔 매체 합계가 들어있어서 슬롯으로 세면
           // 광고그룹 하나가 통째로 더 생기고 비중까지 틀어진다 — 기간만 읽고 슬롯 수집에선 뺀다.
@@ -6081,6 +6133,7 @@ function parseMediaMixWorkbook(wb) {
             if(p) {
               if(!start || p.start < start) start = p.start;
               if(!end || p.end > end) end = p.end;
+              if(!isSubtotalRow) carriedPeriod = p;
             }
           }
           const txt = c => {
@@ -6107,7 +6160,13 @@ function parseMediaMixWorkbook(wb) {
             if(targeting) name = carriedGroupLabel ? `${carriedGroupLabel} · ${targeting}` : targeting;
             else if(carriedGroupLabel && product) name = `${carriedGroupLabel} · ${product}`;
             else name = product || carriedGroupLabel || placement || null;
-            if(name) slotEntries.push({ name, amountLeft: hasLeft ? amtLeft : null, amountRight: hasRight ? amtRight : null });
+            if(name) slotEntries.push({
+              name,
+              amountLeft: hasLeft ? amtLeft : null,
+              amountRight: hasRight ? amtRight : null,
+              startDate: carriedPeriod ? carriedPeriod.start : null,
+              endDate: carriedPeriod ? carriedPeriod.end : null,
+            });
           }
         }
         const mergedEntries = mmMergeSlotEntriesByName(slotEntries);
@@ -6119,7 +6178,13 @@ function parseMediaMixWorkbook(wb) {
         if(rightVals.length) mediaList[mediaIdx].amountRight = rightVals.reduce((s, v) => s + v, 0);
         // 매체 안에 슬롯(광고그룹 후보)이 2개 이상일 때만 비중을 자동으로 나눠 넣는다 (1개뿐이면 그룹 나눌 의미가 없음)
         if(mergedEntries.length >= 2) {
-          mediaList[mediaIdx].adGroups = mmComputeAdGroupsFromEntries(mergedEntries, mediaList[mediaIdx].amountBasis);
+          const groups = mmComputeAdGroupsFromEntries(mergedEntries, mediaList[mediaIdx].amountBasis);
+          // 매체 전체 기간과 똑같은 그룹은 기간을 비워둔다. 비어 있으면 매체 기간을 따라가므로,
+          // 나중에 매체 기간을 고쳤을 때 옛날 날짜가 그룹에 남아 따로 노는 일이 없다.
+          groups.forEach(g => {
+            if(g.startDate === start && g.endDate === end) { g.startDate = null; g.endDate = null; }
+          });
+          mediaList[mediaIdx].adGroups = groups;
         }
         mediaIdx++;
         r = blockEnd + 1;
@@ -6918,12 +6983,25 @@ function renderCampaignView() {
           const groupAmounts = adGroupAmounts(row, Number(row.amount) || 0);
           const groupRemainingAmounts = hasSpent ? adGroupAmounts(row, remainingAmount) : [];
           const adGroupsRowsHtml = adGroups.map((g, gi) => {
-            const groupDaily = days ? computeMediaBaseAmount(groupAmounts[gi] || 0, row) / days : null;
-            const groupRemainingDaily = (hasSpent && remainingDays)
-              ? computeMediaBaseAmount(groupRemainingAmounts[gi] || 0, row) / remainingDays : null;
+            // 그룹마다 집행 기간이 다를 수 있어서 일수도 그룹 기준으로 센다.
+            // 그룹에 기간이 없으면 매체 기간을 그대로 쓰므로 기존 동작과 같다.
+            const gp = adGroupPeriod(g, row);
+            const gDays = adGroupExecDays(g, row);
+            const gRemainingDays = hasSpent ? adGroupRemainingDays(g, row) : null;
+            const groupDaily = gDays ? computeMediaBaseAmount(groupAmounts[gi] || 0, row) / gDays : null;
+            const groupRemainingDaily = (hasSpent && gRemainingDays)
+              ? computeMediaBaseAmount(groupRemainingAmounts[gi] || 0, row) / gRemainingDays : null;
+            const upd = (f, v) => `updateAdGroupField('${camp.id}','${row.id}','${g.id}','${f}',${v})`;
             return `<div class="ct-adgroup-row">
-              <input class="ct-adgroup-name" value="${escHtml(g.name)}" placeholder="광고그룹명 (예: 연령+관심사)" onchange="updateAdGroupField('${camp.id}','${row.id}','${g.id}','name',this.value)">
-              <div class="ct-adgroup-weight"><input type="number" min="0" max="100" value="${g.weight || 0}" onchange="updateAdGroupField('${camp.id}','${row.id}','${g.id}','weight',this.value)">%</div>
+              <input class="ct-adgroup-name" value="${escHtml(g.name)}" placeholder="광고그룹명 (예: 연령+관심사)" onchange="${upd('name', 'this.value')}">
+              <div class="ct-adgroup-weight"><input type="number" min="0" max="100" value="${g.weight || 0}" onchange="${upd('weight', 'this.value')}">%</div>
+              <div class="ct-adgroup-period${gp.own ? ' own' : ''}" title="${gp.own ? '이 그룹만의 기간이에요' : '매체 기간을 따라가요 — 고치면 이 그룹만 따로 잡혀요'}">
+                <input type="date" value="${gp.startDate || ''}" onchange="${upd('startDate', 'this.value')}">
+                <span class="ct-adgroup-period-sep">~</span>
+                <input type="date" value="${gp.endDate || ''}" onchange="${upd('endDate', 'this.value')}">
+                <span class="ct-adgroup-days">${gDays ? gDays + '일' : '-'}</span>
+                ${gp.own ? `<button class="ct-icon-btn" onclick="${upd('resetPeriod', 'null')}" title="매체 기간으로 되돌리기">↺</button>` : ''}
+              </div>
               <div class="ct-adgroup-daily">일예산 <b>${fmtWon(groupDaily)}</b></div>
               ${hasSpent ? `<div class="ct-adgroup-daily">잔여기준 <b>${fmtWon(groupRemainingDaily)}</b></div>` : ''}
               <button class="ct-icon-btn del" onclick="deleteAdGroup('${camp.id}','${row.id}','${g.id}')" title="삭제">✕</button>
