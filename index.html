@@ -789,6 +789,9 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .memo-textarea table.memo-table td.mt-sel,.memo-textarea table.memo-table th.mt-sel{background:rgba(0,117,222,.18);box-shadow:inset 0 0 0 1px rgba(0,117,222,.35);}
 .memo-textarea table.memo-table th.mt-sel{background:rgba(0,117,222,.26);}
 .memo-textarea table.memo-table.mt-dragging{cursor:cell;}
+/* 범위를 잡는 동안엔 기본 하이라이트를 숨긴다 — 선택 자체는 살아 있어야 복사가 된다 */
+.memo-textarea table.memo-table.mt-range ::selection{background:transparent;}
+.memo-textarea table.memo-table.mt-range ::-moz-selection{background:transparent;}
 .memo-textarea table.memo-table.mt-dragging td,.memo-textarea table.memo-table.mt-dragging th{user-select:none;}
 
 /* 셀 안에 넣는 토글/선택 — contenteditable 안에서 글자처럼 지워지되 클릭은 받게 한다 */
@@ -4707,7 +4710,10 @@ function mtCellAt(table, r, c) {
   return tr ? tr.children[c] || null : null;
 }
 function mtClearSelection() {
-  if(mtSel.table) mtSel.table.querySelectorAll('.mt-sel').forEach(el => el.classList.remove('mt-sel'));
+  if(mtSel.table) {
+    mtSel.table.querySelectorAll('.mt-sel').forEach(el => el.classList.remove('mt-sel'));
+    mtSel.table.classList.remove('mt-range');
+  }
   mtSel.table = null; mtSel.anchor = null; mtSel.focus = null;
 }
 // 고른 두 칸을 모서리로 하는 사각형 안의 칸들
@@ -4730,6 +4736,24 @@ function mtPaintSelection() {
   mtSelectedCells().forEach(row => row.forEach(c => c.classList.add('mt-sel')));
 }
 
+// 칸을 칠하는 것만으로는 복사가 안 된다 — 브라우저는 "선택된 게 없다"고 보기 때문이다.
+// 그래서 범위 전체를 덮는 진짜 선택을 걸어두고(그래야 Ctrl+C가 동작한다),
+// 글자를 따라 흐르는 기본 하이라이트는 CSS로 감춰서 사각형만 보이게 한다.
+function mtSyncNativeSelection() {
+  const cells = mtSelectedCells();
+  if(!cells.length) return;
+  const firstRow = cells[0], lastRow = cells[cells.length - 1];
+  const first = firstRow[0], last = lastRow[lastRow.length - 1];
+  try {
+    const r = document.createRange();
+    r.setStart(first, 0);
+    r.setEnd(last, last.childNodes.length);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    mtSel.table.classList.add('mt-range');
+  } catch(e) {}
+}
 function mtCellFromEvent(e) {
   const el = e.target instanceof Element ? e.target : null;
   const cell = el && el.closest('td,th');
@@ -4758,9 +4782,7 @@ function mtOnMouseMove(e) {
   mtSel.moved = true;
   mtSel.table.classList.add('mt-dragging');
   mtPaintSelection();
-  // 기본 글자 선택이 같이 끌려오면 지저분해서 지운다
-  const sel = window.getSelection();
-  if(sel) sel.removeAllRanges();
+  mtSyncNativeSelection();
 }
 function mtOnMouseUp() {
   if(!mtSel.dragging) return;
@@ -4804,6 +4826,14 @@ function mtOnKeyDown(e) {
     e.preventDefault();
     mtSelectedCells().forEach(row => row.forEach(c => { c.innerHTML = '<br>'; }));
     onMemoInput();
+    return;
+  }
+  // 범위가 잡힌 채로 글자를 치면 기본 동작이 그 칸들을 통째로 지운다.
+  // 시작 칸으로 커서만 모아주고 입력은 그대로 흘려보낸다.
+  if(hasRange && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const anchor = mtSel.anchor;
+    mtClearSelection();
+    if(anchor) mtFocusCell(anchor);
     return;
   }
   if(!cell) return;
