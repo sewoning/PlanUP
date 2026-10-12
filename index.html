@@ -409,13 +409,17 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .work-search-wrap:focus-within{border-color:var(--blue);}
 .work-search{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;font-family:inherit;color:var(--gray-900);}
 .work-table-wrap{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.work-table{width:100%;border-collapse:collapse;min-width:860px;}
-.work-table thead th{background:#fff;padding:10px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
+.work-table{width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed;}
+.work-table thead th{position:relative;background:#fff;padding:10px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
 .work-table thead th:nth-child(1){width:230px;}
 .work-table thead th:nth-child(2){width:190px;}
 .work-table thead th:nth-child(3){width:140px;}
 .work-table thead th:nth-child(4){width:150px;}
 .work-table thead th.work-th-act{width:44px;}
+.work-col-resize{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:2;}
+.work-col-resize::after{content:'';position:absolute;top:6px;bottom:6px;left:3px;width:1px;background:var(--gray-200);}
+.work-col-resize:hover::after{background:var(--blue);width:2px;left:2px;}
+.work-table td{overflow:hidden;}
 .work-table td{padding:5px 8px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
 .work-row:hover td{background:rgba(0,117,222,.03);}
 .work-cell{min-height:26px;padding:4px 6px;border-radius:6px;font-size:13px;color:var(--gray-800);line-height:1.5;outline:none;border:1px solid transparent;word-break:break-word;}
@@ -1047,6 +1051,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   .work-table-wrap{ overflow-x:visible; background:transparent; box-shadow:none; }
   .work-table{ min-width:0; }
   .work-table thead{ display:none; }
+  .work-table{ table-layout:auto; }
   .work-table tbody, .work-table tr, .work-table td{ display:block; width:100%; }
   .work-row{ background:#fff; border-radius:var(--r-md); box-shadow:var(--shadow-sm); margin-bottom:8px; padding:10px 12px 8px; position:relative; }
   .work-row:hover td{ background:transparent; }
@@ -4564,6 +4569,7 @@ function workFiltered() {
 }
 
 function renderWorkRows() {
+  workApplyColWidths();
   const tbody = document.getElementById('workTableBody');
   const empty = document.getElementById('workEmpty');
   const filters = document.getElementById('workFilters');
@@ -4609,6 +4615,72 @@ function renderWorkRows() {
 }
 
 function setWorkFilter(k) { workFilter = k; renderWorkRows(); }
+
+// ── 열 너비 조절 ──────────────────────────────────────────────
+// 광고주명 길이가 건마다 제각각이라 고정 폭으로는 늘 어딘가 눌린다.
+// 화면 크기마다 적당한 폭이 달라서 이 기기에만 저장한다(계정 동기화는 하지 않음).
+const WORK_COL_DEFAULT = [230, 190, 140, 150, null, 44];  // null = 남는 폭을 가져가는 칸(비고)
+const WORK_COL_MIN = 70;
+
+function workColWidths() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('planup_work_cols') || 'null');
+    if(Array.isArray(raw) && raw.length === WORK_COL_DEFAULT.length) return raw;
+  } catch(e) {}
+  return [...WORK_COL_DEFAULT];
+}
+function workSaveColWidths(w) {
+  try { localStorage.setItem('planup_work_cols', JSON.stringify(w)); } catch(e) {}
+}
+
+function workApplyColWidths() {
+  const ths = document.querySelectorAll('#workTable thead th');
+  if(!ths.length) return;
+  const w = workColWidths();
+  ths.forEach((th, i) => {
+    th.style.width = w[i] == null ? '' : w[i] + 'px';
+    // 손잡이는 한 번만 달면 된다 (목록은 자주 다시 그려지므로)
+    if(i < ths.length - 1 && !th.querySelector('.work-col-resize')) {
+      const h = document.createElement('span');
+      h.className = 'work-col-resize';
+      h.title = '끌어서 너비 조절 · 더블클릭하면 기본값';
+      h.addEventListener('mousedown', e => workColDragStart(e, i));
+      h.addEventListener('dblclick', e => {
+        e.preventDefault();
+        const cur = workColWidths();
+        cur[i] = WORK_COL_DEFAULT[i];
+        workSaveColWidths(cur);
+        workApplyColWidths();
+      });
+      th.appendChild(h);
+    }
+  });
+}
+
+let workColDrag = null;
+function workColDragStart(e, i) {
+  e.preventDefault();
+  e.stopPropagation();
+  const ths = document.querySelectorAll('#workTable thead th');
+  workColDrag = { i, startX: e.clientX, startW: ths[i].getBoundingClientRect().width };
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+document.addEventListener('mousemove', e => {
+  if(!workColDrag) return;
+  const w = workColWidths();
+  w[workColDrag.i] = Math.max(WORK_COL_MIN, Math.round(workColDrag.startW + (e.clientX - workColDrag.startX)));
+  const th = document.querySelectorAll('#workTable thead th')[workColDrag.i];
+  if(th) th.style.width = w[workColDrag.i] + 'px';
+  workColDrag.pending = w;
+});
+document.addEventListener('mouseup', () => {
+  if(!workColDrag) return;
+  if(workColDrag.pending) workSaveColWidths(workColDrag.pending);
+  workColDrag = null;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
 
 function addWork() {
   state.works = state.works || [];
