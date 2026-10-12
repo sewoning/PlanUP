@@ -383,7 +383,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 
 /* ── Responsive ── */
 /* 헤더 버튼이 많아 1250px 아래에선 상단 탭 글자가 줄바꿈된다 — 보조 버튼은 아이콘만 남긴다 */
-@media(max-width:1250px){ .header-actions .btn-ghost span{display:none} .header-actions .btn-ghost{padding:0 9px} .header-actions{gap:5px} }
+@media(max-width:1400px){ .header-actions .btn-ghost span{display:none} .header-actions .btn-ghost{padding:0 9px} .header-actions{gap:5px} }
 @media(max-width:1100px){ .home-stats-row{grid-template-columns:repeat(2,1fr)} .home-dash-grid{grid-template-columns:1fr} .home-card{height:360px} }
 @media(max-width:900px){ .main{padding:16px} .view.active{flex-direction:column} .sidebar{width:100%;flex-direction:row;flex-wrap:wrap} .sidebar-card{flex:1;min-width:200px} .day-cell{min-height:64px} .cal-side-col{width:100%;height:auto;min-height:0;position:static;top:auto} .cal-quick-tasks{max-height:420px} .memo-view{flex-direction:column;min-height:auto} .memo-sidebar{width:100%;max-height:220px;border-right:none;border-bottom:1px solid var(--gray-100)} }
 @media(max-width:700px){
@@ -400,6 +400,43 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 @media(max-width:520px){ .calendar-header{flex-wrap:wrap;gap:8px;padding:12px 14px} .ctf-btn,.vm-btn{padding:0 10px;font-size:12px} }
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:10px} ::-webkit-scrollbar-thumb:hover{background:var(--gray-400)}
 
+
+/* ── 업무 현황 ── */
+#viewWork.active{flex-direction:column;gap:0;}
+.work-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:12px 14px;margin-bottom:12px;}
+.work-filters{display:flex;gap:6px;flex-wrap:wrap;}
+.work-search-wrap{display:flex;align-items:center;gap:6px;flex:1;min-width:170px;border:1.5px solid var(--gray-200);border-radius:var(--r-sm);padding:0 10px;height:32px;color:var(--gray-400);}
+.work-search-wrap:focus-within{border-color:var(--blue);}
+.work-search{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;font-family:inherit;color:var(--gray-900);}
+.work-table-wrap{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.work-table{width:100%;border-collapse:collapse;min-width:860px;}
+.work-table thead th{background:#fff;padding:10px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
+.work-table thead th:nth-child(1){width:230px;}
+.work-table thead th:nth-child(2){width:190px;}
+.work-table thead th:nth-child(3){width:140px;}
+.work-table thead th:nth-child(4){width:150px;}
+.work-table thead th.work-th-act{width:44px;}
+.work-table td{padding:5px 8px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
+.work-row:hover td{background:rgba(0,117,222,.03);}
+.work-cell{min-height:26px;padding:4px 6px;border-radius:6px;font-size:13px;color:var(--gray-800);line-height:1.5;outline:none;border:1px solid transparent;word-break:break-word;}
+.work-cell:hover{border-color:var(--gray-200);}
+.work-cell:focus{border-color:var(--blue);background:#fff;}
+.work-cell-name{font-weight:600;color:var(--gray-900);}
+.work-cell-note{color:var(--gray-600);font-size:12.5px;}
+.work-status{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border:none;border-radius:12px;
+  font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+  background:var(--gray-100);color:var(--gray-500);}
+.work-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.work-status[data-tone="done"]{background:var(--success-bg);color:var(--green);}
+.work-status[data-tone="doing"]{background:#FFF3E0;color:#C2690B;}
+.work-status[data-tone="todo"]{background:var(--danger-bg,#FDECEC);color:var(--red);}
+.work-status[data-tone="none"]{background:var(--gray-100);color:var(--gray-400);}
+.work-status:hover{filter:brightness(.95);}
+.work-act{text-align:right;}
+.work-row .ct-icon-btn{opacity:0;transition:opacity .12s;}
+.work-row:hover .ct-icon-btn{opacity:1;}
+.work-none{text-align:center;padding:28px;color:var(--gray-400);font-size:13px;}
+.work-empty{padding:48px 28px;text-align:center;color:var(--gray-500);font-size:13px;line-height:1.8;}
 
 /* ── 계산기 ── */
 .calc-modal{max-width:320px;}
@@ -1003,6 +1040,23 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   .ct-adgroup-weight input{ width:44px; }
   .ct-adgroup-daily{ font-size:11px; }
 
+  /* 업무 현황: 폰에서 가로로 밀면 정작 중요한 상태 칸이 화면 밖으로 나간다 — 카드로 쌓는다 */
+  .work-table-wrap{ overflow-x:visible; background:transparent; box-shadow:none; }
+  .work-table{ min-width:0; }
+  .work-table thead{ display:none; }
+  .work-table tbody, .work-table tr, .work-table td{ display:block; width:100%; }
+  .work-row{ background:#fff; border-radius:var(--r-md); box-shadow:var(--shadow-sm); margin-bottom:8px; padding:10px 12px 8px; position:relative; }
+  .work-row:hover td{ background:transparent; }
+  .work-table td{ border:none; padding:2px 0; display:flex; align-items:center; gap:8px; }
+  .work-table td::before{ content:attr(data-label); flex:0 0 42px; font-size:11px; font-weight:600; color:var(--gray-400); }
+  .work-table td:first-child{ display:block; padding-right:26px; }
+  .work-table td:first-child::before{ content:none; }
+  .work-table td.work-act{ position:absolute; top:8px; right:10px; padding:0; width:auto; }
+  .work-table td.work-act::before{ content:none; }
+  .work-row .ct-icon-btn{ opacity:1; }
+  .work-cell{ flex:1; min-width:0; }
+  .work-toolbar{ padding:10px 12px; }
+
   .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
 }
 
@@ -1099,6 +1153,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>캠페인 현황</span>
       </button>
+      <button class="tab-btn" id="tabWork" data-tab="work" onclick="switchTab('work')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        <span>업무 현황</span>
+      </button>
       <button class="tab-btn" id="tabInfo" data-tab="info" onclick="switchTab('info')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span>정보</span>
@@ -1178,6 +1236,10 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   <button class="bottom-tab-btn" data-tab="campaign" onclick="switchTab('campaign')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     <span>캠페인</span>
+  </button>
+  <button class="bottom-tab-btn" data-tab="work" onclick="switchTab('work')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    <span>업무</span>
   </button>
   <button class="bottom-tab-btn" data-tab="info" onclick="switchTab('info')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -1524,6 +1586,36 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
         </table>
       </div>
       <div class="info-empty" id="infoEmpty" style="display:none"></div>
+    </div>
+  </div>
+
+
+  <!-- ── 업무 현황 (개인 전용 · 제안~라이브 파이프라인) ──
+       캠페인 현황 시트는 "수주한 뒤 매체별로 세팅/라이브/보고가 어디까지 됐나"를 본다.
+       이건 그 앞단 — 제안 중인 건까지 포함해 "지금 들고 있는 일"을 한 줄씩 본다. -->
+  <div class="view" id="viewWork">
+    <div class="work-toolbar">
+      <div class="work-filters" id="workFilters"></div>
+      <div class="work-search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="work-search" id="workSearch" placeholder="캠페인·광고주·비고 검색" oninput="renderWorkRows()">
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="workPasteImport()" title="메모 표에서 복사한 내용을 그대로 붙여넣어 가져와요">붙여넣기로 가져오기</button>
+      <button class="btn btn-primary btn-sm" onclick="addWork()">+ 행 추가</button>
+    </div>
+    <div class="work-table-wrap">
+      <table class="work-table" id="workTable">
+        <thead><tr>
+          <th class="work-th-name">캠페인</th>
+          <th>광고주</th>
+          <th>기간</th>
+          <th>라이브 여부</th>
+          <th>비고</th>
+          <th class="work-th-act"></th>
+        </tr></thead>
+        <tbody id="workTableBody"></tbody>
+      </table>
+      <div class="work-empty" id="workEmpty" style="display:none"></div>
     </div>
   </div>
 
@@ -1988,6 +2080,7 @@ let state = {
   contacts: [],   // 매체 컨택포인트 연락처
   accounts: [],   // 계정 정보
   notices: [],    // 팀 공지사항 (개인별 확인 체크)
+  works: [],      // 업무 현황 (제안~라이브 파이프라인)
   memoUncatCollapsed: false,
   selectedMemoId: null,
   calTypeFilter: 'all',   // 'all' | 'remote'
@@ -2209,6 +2302,7 @@ function save() {
   localStorage.setItem('cal_campaigns', JSON.stringify(state.campaigns));
   localStorage.setItem('cal_contacts', JSON.stringify(state.contacts));
   localStorage.setItem('cal_accounts', JSON.stringify(state.accounts));
+  localStorage.setItem('cal_works', JSON.stringify(state.works));
   // 원격 저장은 디바운스(1.2초)돼 있어서, 저장 직후 바로 새로고침하면 아직 서버로 안 올라간 상태일 수 있다.
   // 그 시각을 남겨두면 pullRemoteData()가 "방금 로컬에서 저장한 게 서버보다 최신"임을 알고
   // 옛날 원격 데이터로 되돌리는 대신 로컬 내용을 마저 밀어올린다.
@@ -2229,6 +2323,8 @@ function load() {
     if(cp) state.campaigns = JSON.parse(cp);
     const ct = localStorage.getItem('cal_contacts');
     state.contacts = ct ? JSON.parse(ct) : [];
+    const wk = localStorage.getItem('cal_works');
+    state.works = wk ? JSON.parse(wk) : [];
     const ac = localStorage.getItem('cal_accounts');
     state.accounts = ac ? JSON.parse(ac) : [];
     state.notices = []; // 공지사항은 팀 시트 전용이라 개인 데이터에는 없음
@@ -2236,7 +2332,7 @@ function load() {
 }
 
 // ── Auth & 원격 동기화 (Supabase) ─────────────────────────────────
-const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts', 'cal_avatar', 'cal_home_team'];
+const SYNC_KEYS = ['cal_events', 'cal_tasks', 'cal_memos', 'cal_memo_folders', 'cal_campaigns', 'cal_contacts', 'cal_accounts', 'cal_avatar', 'cal_home_team', 'cal_works'];
 let authMode = 'login'; // 'login' | 'signup'
 
 // 닉네임은 실제 이메일이 아니라, Supabase Auth가 요구하는 이메일 형식으로 변환해서만 내부적으로 사용 (실제 메일 발송 없음)
@@ -2513,6 +2609,7 @@ function stateFromData(data) {
   state.memoFolders = Array.isArray(data.cal_memo_folders) ? data.cal_memo_folders : [];
   state.accounts = Array.isArray(data.cal_accounts) ? data.cal_accounts : [];
   state.campaigns = Array.isArray(data.cal_campaigns) ? data.cal_campaigns : [];
+  state.works = Array.isArray(data.cal_works) ? data.cal_works : [];
   state.notices = Array.isArray(data.cal_notices) ? data.cal_notices : [];
   state.selectedMemoId = state.memos.length ? state.memos[0].id : null;
 }
@@ -2527,7 +2624,8 @@ function stateToData() {
     cal_memos: state.memos,
     cal_memo_folders: state.memoFolders,
     cal_accounts: state.accounts,
-    cal_campaigns: state.campaigns
+    cal_campaigns: state.campaigns,
+    cal_works: state.works
   };
 }
 
@@ -2709,12 +2807,22 @@ function teamForceEdit() {
 // 화면 구성이 워크스페이스마다 완전히 다르다: 개인은 보통 탭 전부, 팀은 캠페인/예산계산기 대신 정보(계정),
 // 실은 정보 탭 하나만 컨택포인트로 재사용한다. 하나의 표에 두고 매번 통째로 맞춘다.
 const WORKSPACE_TABS = {
-  personal: ['home', 'cal', 'sheet', 'memo', 'campaign'],
+  // 'work'(업무 현황)는 아직 시험 중이라 WORK_SHEET_OWNERS에 있는 사람에게만 보인다 — applyWorkspaceTabs 참고
+  personal: ['home', 'cal', 'sheet', 'memo', 'campaign', 'work'],
   team:     ['home', 'cal', 'memo', 'info'],
   sil:      ['info']
 };
+// 업무 현황 시트는 아직 다듬는 중이라 쓰는 사람만 열어둔다.
+// 다 되면 이 목록을 지우고 canUseWorkSheet()이 항상 true를 돌려주게 하면 전체 공개된다.
+// (한 파일을 모두가 받는 구조라 코드 자체는 내려간다 — 탭이 안 보일 뿐이다)
+const WORK_SHEET_OWNERS = ['sewoning'];
+function canUseWorkSheet() {
+  return WORK_SHEET_OWNERS.includes((myNickname() || '').trim().toLowerCase());
+}
+
 function applyWorkspaceTabs() {
   const shown = new Set(WORKSPACE_TABS[workspace] || WORKSPACE_TABS.personal);
+  if(!canUseWorkSheet()) shown.delete('work');
   Object.values(WORKSPACE_TABS).flat().forEach((t, i, arr) => {
     if(arr.indexOf(t) !== i) return; // 중복 제거
     document.querySelectorAll(`[data-tab="${t}"]`).forEach(el => { el.style.display = shown.has(t) ? '' : 'none'; });
@@ -3343,7 +3451,7 @@ function setCalTypeFilter(type) {
 // ── Tab ────────────────────────────────────────────────────────
 function switchTab(tab) {
   state.currentTab = tab;
-  ['home','cal','sheet','memo','campaign','info'].forEach(t => {
+  ['home','cal','sheet','memo','campaign','info','work'].forEach(t => {
     const viewEl = document.getElementById('view'+t.charAt(0).toUpperCase()+t.slice(1));
     if(viewEl) viewEl.classList.toggle('active', tab===t);
   });
@@ -3351,13 +3459,14 @@ function switchTab(tab) {
   document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
   const btn = document.getElementById('headerAddBtn');
   const labels = {cal:'일정 추가', sheet:'업무 추가', memo:'새 메모', campaign:'새 캠페인'};
-  btn.style.display = (tab === 'home' || tab === 'info') ? 'none' : '';
+  btn.style.display = (tab === 'home' || tab === 'info' || tab === 'work') ? 'none' : '';
   btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>${labels[tab]||'추가'}</span>`;
   if(tab==='home') renderHome();
   if(tab==='sheet') renderSheet();
   if(tab==='memo') renderMemoView();
   if(tab==='campaign') renderCampaignView();
   if(tab==='info') renderInfoView();
+  if(tab==='work') renderWorkView();
 }
 function headerAdd() {
   if(state.currentTab==='cal') openAddEventModal();
@@ -4416,6 +4525,171 @@ function memoCurrentCell() {
   const cell = node.closest('td, th');
   const body = document.getElementById('memoBodyInput');
   return (cell && body && body.contains(cell)) ? cell : null;
+}
+
+// ── 업무 현황 (개인 전용) ─────────────────────────────────────
+// 기간에 "미정"·"11월 중순~12월 중순" 같은 말이 그대로 들어가서 날짜칸으로 받지 않고 글자로 둔다.
+// 상태도 고정 목록이 아니라 쓰면서 늘어나므로, 값을 자유롭게 두되 뜻을 보고 색만 입힌다.
+const WORK_STATUS_PRESETS = ['미정', '제안 중', '제안 완료', '소재 수급 필요', '최종 확인 및 라이브 필요', '라이브 완료', '종료'];
+
+// "~필요"는 내가 움직여야 하는 것, "~중"은 굴러가는 중, "완료"는 끝난 것.
+// 목록을 고정하지 않고 규칙으로 판단해서, 새 표현을 써도 색이 맞게 붙는다.
+function workStatusTone(v) {
+  const t = String(v || '').trim();
+  if(!t || t === '미정') return 'none';
+  if(/필요|요청|확인/.test(t)) return 'todo';
+  if(/완료|종료/.test(t)) return 'done';
+  if(/중$|중\b|진행/.test(t)) return 'doing';
+  return '';
+}
+
+let workFilter = 'all';   // 'all' | 상태값
+
+function renderWorkView() {
+  if(!canUseWorkSheet()) return;
+  renderWorkRows();
+}
+
+function workFiltered() {
+  const q = (document.getElementById('workSearch')?.value || '').trim().toLowerCase();
+  return (state.works || []).filter(w => {
+    if(workFilter !== 'all' && (w.status || '미정') !== workFilter) return false;
+    if(!q) return true;
+    return [w.name, w.client, w.period, w.status, w.note]
+      .some(v => (v || '').toLowerCase().includes(q));
+  });
+}
+
+function renderWorkRows() {
+  const tbody = document.getElementById('workTableBody');
+  const empty = document.getElementById('workEmpty');
+  const filters = document.getElementById('workFilters');
+  if(!tbody) return;
+
+  // 상태별 개수 — 지금 뭐가 밀려 있는지 한눈에 보여야 해서 맨 위에 둔다
+  const counts = {};
+  (state.works || []).forEach(w => { const k = w.status || '미정'; counts[k] = (counts[k] || 0) + 1; });
+  const keys = Object.keys(counts).sort((a, b) => {
+    const ia = WORK_STATUS_PRESETS.indexOf(a), ib = WORK_STATUS_PRESETS.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  filters.innerHTML = `<button class="cpf-tab${workFilter === 'all' ? ' active' : ''}" onclick="setWorkFilter('all')">전체 <span class="cpf-count">${(state.works || []).length}</span></button>`
+    + keys.map(k => `<button class="cpf-tab${workFilter === k ? ' active' : ''}" onclick="setWorkFilter('${escHtml(k).replace(/'/g, "\\'")}')">${escHtml(k)} <span class="cpf-count">${counts[k]}</span></button>`).join('');
+
+  const rows = workFiltered();
+  if(!(state.works || []).length) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    empty.innerHTML = `📋 <b>아직 비어 있어요</b><br><br>
+      메모에 적어둔 표가 있다면 그대로 복사해서 <b>붙여넣기로 가져오기</b>를 눌러보세요.<br>
+      <span style="color:var(--gray-400);font-size:12px">캠페인 · 광고주 · 기간 · 라이브 여부 · 비고 순서로 읽어요</span>`;
+    return;
+  }
+  empty.style.display = 'none';
+  if(!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="work-none">조건에 맞는 건이 없어요</td></tr>';
+    return;
+  }
+
+  const upd = (id, f) => `updateWork('${id}','${f}',this.textContent)`;
+  tbody.innerHTML = rows.map(w => {
+    const tone = workStatusTone(w.status);
+    return `<tr class="work-row" data-id="${w.id}">
+      <td><div class="work-cell work-cell-name" contenteditable="true" onblur="${upd(w.id, 'name')}">${escHtml(w.name || '')}</div></td>
+      <td data-label="광고주"><div class="work-cell" contenteditable="true" onblur="${upd(w.id, 'client')}">${escHtml(w.client || '')}</div></td>
+      <td data-label="기간"><div class="work-cell" contenteditable="true" onblur="${upd(w.id, 'period')}">${escHtml(w.period || '')}</div></td>
+      <td data-label="상태"><button class="work-status" data-tone="${tone}" onclick="openWorkStatusMenu(event,'${w.id}')">${escHtml(w.status || '미정')}</button></td>
+      <td data-label="비고"><div class="work-cell work-cell-note" contenteditable="true" onblur="${upd(w.id, 'note')}">${escHtml(w.note || '')}</div></td>
+      <td class="work-act"><button class="ct-icon-btn del" onclick="deleteWork('${w.id}')" title="삭제">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function setWorkFilter(k) { workFilter = k; renderWorkRows(); }
+
+function addWork() {
+  state.works = state.works || [];
+  state.works.unshift({ id: uid(), name: '', client: '', period: '', status: '미정', note: '', createdAt: Date.now() });
+  save();
+  renderWorkRows();
+  // 새로 만든 줄의 캠페인명으로 바로 커서를 보낸다
+  const first = document.querySelector('#workTableBody .work-cell-name');
+  if(first) first.focus();
+}
+
+function updateWork(id, field, value) {
+  const w = (state.works || []).find(x => x.id === id);
+  if(!w) return;
+  const v = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  if(w[field] === v) return;
+  w[field] = v;
+  save();
+  if(field === 'status') renderWorkRows();
+}
+
+function deleteWork(id) {
+  state.works = (state.works || []).filter(w => w.id !== id);
+  save();
+  renderWorkRows();
+}
+
+function openWorkStatusMenu(ev, id) {
+  ev.preventDefault();
+  closeChipMenu();
+  const w = (state.works || []).find(x => x.id === id);
+  if(!w) return;
+  // 쓰던 표현도 목록에 같이 올려둔다 (프리셋에 없는 걸 썼더라도 다시 고를 수 있게)
+  const used = [...new Set((state.works || []).map(x => x.status).filter(Boolean))];
+  const opts = [...new Set([...WORK_STATUS_PRESETS, ...used])];
+
+  const menu = document.createElement('div');
+  menu.className = 'memo-chip-menu';
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="work-status" data-tone="${workStatusTone(o)}" style="pointer-events:none">${escHtml(o)}</span>`;
+    b.onclick = () => { closeChipMenu(); updateWork(id, 'status', o); };
+    menu.appendChild(b);
+  });
+  const custom = document.createElement('button');
+  custom.className = 'edit';
+  custom.textContent = '직접 입력…';
+  custom.onclick = () => {
+    closeChipMenu();
+    const next = prompt('상태를 입력하세요', w.status || '');
+    if(next === null) return;
+    updateWork(id, 'status', next.trim());
+  };
+  menu.appendChild(custom);
+
+  document.body.appendChild(menu);
+  const r = ev.currentTarget.getBoundingClientRect();
+  const mh = menu.offsetHeight;
+  menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
+  menu.style.top = (r.bottom + 4 + mh > window.innerHeight ? r.top - mh - 4 : r.bottom + 4) + 'px';
+}
+
+// 메모 표에서 복사한 걸 그대로 받는다. 메모 표 복사는 탭으로 구분돼 나오고,
+// 엑셀에서 복사한 것도 같은 모양이라 양쪽 다 들어온다.
+function workPasteImport() {
+  const text = prompt('메모 표(또는 엑셀)에서 복사한 내용을 붙여넣으세요\n캠페인 · 광고주 · 기간 · 라이브 여부 · 비고 순서로 읽어요');
+  if(!text) return;
+  const lines = text.replace(/\r\n/g, '\n').split('\n').map(l => l.trim()).filter(Boolean);
+  const added = [];
+  lines.forEach(line => {
+    const c = line.split('\t').map(x => x.trim());
+    if(c.length < 2) return;
+    // 머리글 줄은 건너뛴다
+    if(/^(캠페인|campaign)$/i.test(c[0]) || (c[0] === '캠페인' && c[1] === '광고주')) return;
+    added.push({
+      id: uid(), name: c[0] || '', client: c[1] || '', period: c[2] || '',
+      status: c[3] || '미정', note: c[4] || '', createdAt: Date.now(),
+    });
+  });
+  if(!added.length) { showToast('읽을 수 있는 줄이 없어요 — 표를 복사해서 붙여넣어 주세요'); return; }
+  state.works = [...added, ...(state.works || [])];
+  save();
+  renderWorkRows();
+  showToast(`${added.length}건을 가져왔어요`);
 }
 
 // ── 메모 표: 엑셀처럼 다루기 ──────────────────────────────────
