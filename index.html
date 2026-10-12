@@ -410,7 +410,7 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .work-search{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;font-family:inherit;color:var(--gray-900);}
 .work-table-wrap{background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .work-table{width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed;}
-.work-table thead th{position:relative;background:#fff;padding:10px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:left;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
+.work-table thead th{position:relative;background:#fff;padding:10px 12px;font-size:11.5px;font-weight:600;color:var(--gray-500);text-align:center;border-bottom:2px solid var(--gray-200);white-space:nowrap;letter-spacing:.2px;}
 .work-table thead th:nth-child(1){width:230px;}
 .work-table thead th:nth-child(2){width:190px;}
 .work-table thead th:nth-child(3){width:140px;}
@@ -420,7 +420,9 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .work-col-resize::after{content:'';position:absolute;top:6px;bottom:6px;left:3px;width:1px;background:var(--gray-200);}
 .work-col-resize:hover::after{background:var(--blue);width:2px;left:2px;}
 .work-table td{overflow:hidden;}
-.work-table td{padding:5px 8px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
+.work-table td{padding:5px 8px;border-bottom:1px solid var(--gray-100);vertical-align:middle;text-align:center;}
+/* 머리글은 전부 가운데. 본문 비고만 왼쪽 — 여러 줄 문장이라 가운데로 두면 읽기 나쁘다 */
+.work-table td:nth-child(5){text-align:left;}
 .work-row:hover td{background:rgba(0,117,222,.03);}
 .work-cell{min-height:26px;padding:4px 6px;border-radius:6px;font-size:13px;color:var(--gray-800);line-height:1.5;outline:none;border:1px solid transparent;word-break:break-word;}
 .work-cell:hover{border-color:var(--gray-200);}
@@ -436,7 +438,17 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 .work-status[data-tone="todo"]{background:var(--danger-bg,#FDECEC);color:var(--red);}
 .work-status[data-tone="none"]{background:var(--gray-100);color:var(--gray-400);}
 .work-status:hover{filter:brightness(.95);}
-.work-act{text-align:right;}
+.work-act{text-align:center;}
+/* 끌기 손잡이는 첫 칸 왼쪽에 겹쳐 둔다 — 열을 하나 더 만들면 표가 좁아진다 */
+.work-table td.work-first{position:relative;}
+.work-drag{position:absolute;left:2px;top:50%;transform:translateY(-50%);display:flex;align-items:center;
+  color:var(--gray-300);cursor:grab;opacity:0;transition:opacity .12s;padding:2px;}
+.work-drag:active{cursor:grabbing;}
+.work-row:hover .work-drag{opacity:1;}
+.work-drag:hover{color:var(--gray-500);}
+.work-row.work-dragging{opacity:.4;}
+tr.work-drop td{box-shadow:inset 0 2px 0 0 var(--blue);}
+tr.work-drop.work-drop-after td{box-shadow:inset 0 -2px 0 0 var(--blue);}
 .work-row .ct-icon-btn{opacity:0;transition:opacity .12s;}
 .work-row:hover .ct-icon-btn{opacity:1;}
 .work-none{text-align:center;padding:28px;color:var(--gray-400);font-size:13px;}
@@ -1063,6 +1075,8 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
   .work-table td.work-act::before{ content:none; }
   .work-row .ct-icon-btn{ opacity:1; }
   .work-cell{ flex:1; min-width:0; }
+  .work-table td, .work-table th{ text-align:left; }
+  .work-drag{ display:none; }
   .work-toolbar{ padding:10px 12px; }
 
   .cpf-tab{ font-size:12px; padding:0 10px; height:30px; }
@@ -4604,7 +4618,7 @@ function renderWorkRows() {
   tbody.innerHTML = rows.map(w => {
     const tone = workStatusTone(w.status);
     return `<tr class="work-row" data-id="${w.id}">
-      <td><div class="work-cell work-cell-name" contenteditable="true" onblur="${upd(w.id, 'name')}">${escHtml(w.name || '')}</div></td>
+      <td class="work-first"><span class="work-drag" title="끌어서 순서 변경">${DRAG_HANDLE_SVG}</span><div class="work-cell work-cell-name" contenteditable="true" onblur="${upd(w.id, 'name')}">${escHtml(w.name || '')}</div></td>
       <td data-label="광고주"><div class="work-cell" contenteditable="true" onblur="${upd(w.id, 'client')}">${escHtml(w.client || '')}</div></td>
       <td data-label="기간"><div class="work-cell" contenteditable="true" onblur="${upd(w.id, 'period')}">${escHtml(w.period || '')}</div></td>
       <td data-label="상태"><button class="work-status" data-tone="${tone}" onclick="openWorkStatusMenu(event,'${w.id}')">${escHtml(w.status || '미정')}</button></td>
@@ -4612,6 +4626,63 @@ function renderWorkRows() {
       <td class="work-act"><button class="ct-icon-btn del" onclick="deleteWork('${w.id}')" title="삭제">✕</button></td>
     </tr>`;
   }).join('');
+  workBindRowDrag();
+}
+
+// ── 행 순서 바꾸기 ────────────────────────────────────────────
+// 거르거나 검색한 상태에서도 끌 수 있게, 화면 순서가 아니라 원본 배열에서
+// "놓은 줄의 바로 앞"으로 옮긴다. 그래야 걸러진 줄들이 엉키지 않는다.
+let workDragId = null;
+
+function workBindRowDrag() {
+  document.querySelectorAll('#workTableBody .work-row').forEach(tr => {
+    const handle = tr.querySelector('.work-drag');
+    if(handle) {
+      handle.draggable = true;
+      handle.addEventListener('dragstart', e => {
+        e.stopPropagation();
+        workDragId = tr.dataset.id;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', workDragId);
+        tr.classList.add('work-dragging');
+      });
+    }
+    tr.addEventListener('dragover', e => {
+      if(!workDragId || tr.dataset.id === workDragId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.work-drop').forEach(el => el.classList.remove('work-drop', 'work-drop-after'));
+      // 줄의 아래쪽 절반에 놓으면 그 아래로 간다
+      const r = tr.getBoundingClientRect();
+      tr.classList.add('work-drop');
+      if(e.clientY > r.top + r.height / 2) tr.classList.add('work-drop-after');
+    });
+    tr.addEventListener('dragleave', () => tr.classList.remove('work-drop', 'work-drop-after'));
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      const after = tr.classList.contains('work-drop-after');
+      tr.classList.remove('work-drop', 'work-drop-after');
+      workMoveRow(workDragId, tr.dataset.id, after);
+    });
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('work-dragging');
+      document.querySelectorAll('.work-drop').forEach(el => el.classList.remove('work-drop', 'work-drop-after'));
+      workDragId = null;
+    });
+  });
+}
+
+function workMoveRow(dragId, targetId, after) {
+  if(!dragId || !targetId || dragId === targetId) return;
+  const list = state.works || [];
+  const from = list.findIndex(w => w.id === dragId);
+  if(from < 0) return;
+  const [moved] = list.splice(from, 1);
+  let to = list.findIndex(w => w.id === targetId);
+  if(to < 0) { list.splice(from, 0, moved); return; }
+  list.splice(after ? to + 1 : to, 0, moved);
+  save();
+  renderWorkRows();
 }
 
 function setWorkFilter(k) { workFilter = k; renderWorkRows(); }
