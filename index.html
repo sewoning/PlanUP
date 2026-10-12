@@ -382,6 +382,8 @@ body { font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans
 @keyframes toastOut { to{opacity:0;transform:translateY(8px) scale(.95)} }
 
 /* ── Responsive ── */
+/* 헤더 버튼이 많아 1250px 아래에선 상단 탭 글자가 줄바꿈된다 — 보조 버튼은 아이콘만 남긴다 */
+@media(max-width:1250px){ .header-actions .btn-ghost span{display:none} .header-actions .btn-ghost{padding:0 9px} .header-actions{gap:5px} }
 @media(max-width:1100px){ .home-stats-row{grid-template-columns:repeat(2,1fr)} .home-dash-grid{grid-template-columns:1fr} .home-card{height:360px} }
 @media(max-width:900px){ .main{padding:16px} .view.active{flex-direction:column} .sidebar{width:100%;flex-direction:row;flex-wrap:wrap} .sidebar-card{flex:1;min-width:200px} .day-cell{min-height:64px} .cal-side-col{width:100%;height:auto;min-height:0;position:static;top:auto} .cal-quick-tasks{max-height:420px} .memo-view{flex-direction:column;min-height:auto} .memo-sidebar{width:100%;max-height:220px;border-right:none;border-bottom:1px solid var(--gray-100)} }
 @media(max-width:700px){
@@ -745,6 +747,26 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .memo-textarea table.memo-table th,.memo-textarea table.memo-table td{border:1px solid var(--gray-300);padding:6px 10px;vertical-align:top;word-break:break-word;line-height:1.6;}
 .memo-textarea table.memo-table th{background:var(--gray-100);font-weight:700;color:var(--gray-800);text-align:left;}
 .memo-textarea table.memo-table td:focus,.memo-textarea table.memo-table th:focus{outline:2px solid var(--blue);outline-offset:-2px;}
+/* 드래그로 고른 범위. 브라우저 기본 선택은 글자를 따라 흐르듯 잡혀서 엑셀과 느낌이 다르다 —
+   직접 사각형으로 칠하고, 그 동안 기본 선택은 지운다. */
+.memo-textarea table.memo-table td.mt-sel,.memo-textarea table.memo-table th.mt-sel{background:rgba(0,117,222,.18);box-shadow:inset 0 0 0 1px rgba(0,117,222,.35);}
+.memo-textarea table.memo-table th.mt-sel{background:rgba(0,117,222,.26);}
+.memo-textarea table.memo-table.mt-dragging{cursor:cell;}
+.memo-textarea table.memo-table.mt-dragging td,.memo-textarea table.memo-table.mt-dragging th{user-select:none;}
+
+/* 셀 안에 넣는 토글/선택 — contenteditable 안에서 글자처럼 지워지되 클릭은 받게 한다 */
+.memo-toggle,.memo-chip{display:inline-flex;align-items:center;gap:4px;height:21px;padding:0 9px;border-radius:11px;font-size:11.5px;font-weight:700;cursor:pointer;user-select:none;vertical-align:middle;white-space:nowrap;font-family:inherit;line-height:1;}
+.memo-toggle{background:var(--gray-200);color:var(--gray-500);}
+.memo-toggle::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
+.memo-toggle[data-on="1"]{background:var(--success-bg);color:var(--green);}
+.memo-toggle:hover{filter:brightness(.96);}
+.memo-chip{background:var(--blue-light);color:var(--blue-dark);}
+.memo-chip::after{content:'▾';font-size:9px;opacity:.6;}
+.memo-chip:hover{filter:brightness(.96);}
+.memo-chip-menu{position:fixed;z-index:1200;background:#fff;border:1px solid var(--gray-200);border-radius:var(--r-md);box-shadow:var(--shadow-lg);padding:4px;min-width:132px;display:flex;flex-direction:column;gap:1px;}
+.memo-chip-menu button{border:none;background:none;font-family:inherit;font-size:12.5px;text-align:left;padding:7px 10px;border-radius:5px;cursor:pointer;color:var(--gray-800);}
+.memo-chip-menu button:hover{background:var(--gray-100);}
+.memo-chip-menu button.edit{color:var(--gray-400);font-size:11.5px;border-top:1px solid var(--gray-100);border-radius:0 0 5px 5px;margin-top:2px;}
 .memo-textarea::placeholder{color:var(--gray-300);}
 .memo-empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--gray-400);}
 .memo-empty-state-icon{font-size:40px;margin-bottom:12px;}
@@ -1372,6 +1394,12 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <div class="mtb-sep"></div>
+            <button class="mtb-btn" onmousedown="event.preventDefault();memoInsertToggle()" title="ON/OFF 토글 넣기 (눌러서 전환)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="22" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>
+            </button>
+            <button class="mtb-btn" onmousedown="event.preventDefault();memoInsertChip()" title="선택 칩 넣기 (제안 중 · 진행 중 · 완료…)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="5"/><polyline points="15 11 17 13 19 11"/></svg>
+            </button>
             <button class="mtb-btn" onmousedown="event.preventDefault();memoInsertTable()" title="표 넣기">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
             </button>
@@ -4375,6 +4403,258 @@ function memoCurrentCell() {
   return (cell && body && body.contains(cell)) ? cell : null;
 }
 
+// ── 메모 표: 엑셀처럼 다루기 ──────────────────────────────────
+// contenteditable 기본 동작은 표를 "글자 흐름"으로만 봐서, 드래그하면 칸이 아니라
+// 글자가 잡히고 Tab도 칸 이동이 아니다. 아래는 그 차이를 메우는 부분이다.
+const mtSel = { table: null, anchor: null, focus: null, dragging: false, moved: false };
+
+function mtCellPos(cell) {
+  const tr = cell.parentElement;
+  return { r: [...tr.parentElement.children].indexOf(tr), c: [...tr.children].indexOf(cell) };
+}
+function mtCellAt(table, r, c) {
+  const body = table.tBodies[0] || table;
+  const tr = body.children[r];
+  return tr ? tr.children[c] || null : null;
+}
+function mtClearSelection() {
+  if(mtSel.table) mtSel.table.querySelectorAll('.mt-sel').forEach(el => el.classList.remove('mt-sel'));
+  mtSel.table = null; mtSel.anchor = null; mtSel.focus = null;
+}
+// 고른 두 칸을 모서리로 하는 사각형 안의 칸들
+function mtSelectedCells() {
+  if(!mtSel.table || !mtSel.anchor || !mtSel.focus) return [];
+  const a = mtCellPos(mtSel.anchor), b = mtCellPos(mtSel.focus);
+  const out = [];
+  for(let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++) {
+    const row = [];
+    for(let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++) {
+      const cell = mtCellAt(mtSel.table, r, c);
+      if(cell) row.push(cell);
+    }
+    if(row.length) out.push(row);
+  }
+  return out;
+}
+function mtPaintSelection() {
+  mtSel.table.querySelectorAll('.mt-sel').forEach(el => el.classList.remove('mt-sel'));
+  mtSelectedCells().forEach(row => row.forEach(c => c.classList.add('mt-sel')));
+}
+
+function mtCellFromEvent(e) {
+  const el = e.target instanceof Element ? e.target : null;
+  const cell = el && el.closest('td,th');
+  if(!cell) return null;
+  const table = cell.closest('table.memo-table');
+  const body = document.getElementById('memoBodyInput');
+  return (table && body && body.contains(table)) ? cell : null;
+}
+
+function mtOnMouseDown(e) {
+  if(e.button !== 0) return;
+  const cell = mtCellFromEvent(e);
+  mtClearSelection();
+  if(!cell) return;
+  // 아직 칠하지 않는다 — 그냥 클릭이면 커서만 놓여야 하니까.
+  mtSel.table = cell.closest('table.memo-table');
+  mtSel.anchor = cell; mtSel.focus = cell;
+  mtSel.dragging = true; mtSel.moved = false;
+}
+function mtOnMouseMove(e) {
+  if(!mtSel.dragging) return;
+  const cell = mtCellFromEvent(e);
+  if(!cell || cell === mtSel.focus) return;
+  if(cell.closest('table.memo-table') !== mtSel.table) return;
+  mtSel.focus = cell;
+  mtSel.moved = true;
+  mtSel.table.classList.add('mt-dragging');
+  mtPaintSelection();
+  // 기본 글자 선택이 같이 끌려오면 지저분해서 지운다
+  const sel = window.getSelection();
+  if(sel) sel.removeAllRanges();
+}
+function mtOnMouseUp() {
+  if(!mtSel.dragging) return;
+  mtSel.dragging = false;
+  if(mtSel.table) mtSel.table.classList.remove('mt-dragging');
+  if(!mtSel.moved) mtClearSelection();   // 단순 클릭이면 선택 없음
+}
+
+// 칸 안에 커서를 놓는다 (엑셀처럼 칸 전체가 잡히진 않지만 이동은 자연스럽게)
+function mtFocusCell(cell) {
+  if(!cell) return;
+  mtClearSelection();
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges(); sel.addRange(range);
+}
+function mtMove(cell, dr, dc) {
+  const table = cell.closest('table.memo-table');
+  const { r, c } = mtCellPos(cell);
+  const body = table.tBodies[0] || table;
+  let nr = r + dr, nc = c + dc;
+  const cols = body.children[r] ? body.children[r].children.length : 0;
+  if(nc >= cols) { nc = 0; nr++; }          // 마지막 칸에서 Tab → 다음 줄 첫 칸
+  if(nc < 0) { nc = cols - 1; nr--; }
+  if(nr < 0 || nr >= body.children.length) return null;
+  return mtCellAt(table, nr, nc);
+}
+
+function mtOnKeyDown(e) {
+  const body = document.getElementById('memoBodyInput');
+  if(!body || !body.contains(e.target instanceof Node ? e.target : document.activeElement)) {
+    if(document.activeElement !== body) return;
+  }
+  const cell = memoCurrentCell();
+  const hasRange = mtSelectedCells().length > 1 || (mtSelectedCells()[0] || []).length > 1;
+
+  // 고른 범위를 Delete로 한 번에 비우기
+  if(hasRange && (e.key === 'Delete' || e.key === 'Backspace')) {
+    e.preventDefault();
+    mtSelectedCells().forEach(row => row.forEach(c => { c.innerHTML = '<br>'; }));
+    onMemoInput();
+    return;
+  }
+  if(!cell) return;
+
+  if(e.key === 'Tab') {
+    e.preventDefault();
+    const next = mtMove(cell, 0, e.shiftKey ? -1 : 1);
+    if(next) mtFocusCell(next);
+    return;
+  }
+  // 엑셀처럼 Enter는 아래 칸으로. 칸 안에서 줄을 바꾸려면 Shift(또는 Alt)+Enter.
+  if(e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.isComposing) {
+    e.preventDefault();
+    const next = mtMove(cell, 1, 0);
+    if(next) mtFocusCell(next);
+    return;
+  }
+  if(e.key === 'Enter' && e.altKey) {
+    e.preventDefault();
+    document.execCommand('insertLineBreak');
+  }
+}
+
+// 고른 범위를 탭으로 구분해서 복사 → 엑셀에 그대로 붙는다
+function mtOnCopy(e) {
+  const cells = mtSelectedCells();
+  if(cells.length === 0 || (cells.length === 1 && cells[0].length === 1)) return;
+  const tsv = cells.map(row => row.map(c => (c.innerText || '').replace(/\s+$/, '').replace(/\t/g, ' ')).join('\t')).join('\n');
+  e.clipboardData.setData('text/plain', tsv);
+  e.preventDefault();
+}
+
+// 엑셀에서 복사한 걸 붙여넣으면 칸에 나눠 담는다 (모자라면 줄을 늘린다)
+function mtOnPaste(e) {
+  const cell = memoCurrentCell();
+  if(!cell) return;
+  const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+  if(!text || !/[\t\n]/.test(text)) return;
+  const grid = text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').map(line => line.split('\t'));
+  if(grid.length === 1 && grid[0].length === 1) return;
+  e.preventDefault();
+
+  const table = cell.closest('table.memo-table');
+  const tbody = table.tBodies[0] || table;
+  const { r: r0, c: c0 } = mtCellPos(cell);
+  const cols = tbody.children[r0].children.length;
+
+  grid.forEach((line, i) => {
+    let tr = tbody.children[r0 + i];
+    if(!tr) {   // 붙여넣을 줄이 모자라면 같은 칸 수로 새 줄을 만든다
+      tr = document.createElement('tr');
+      for(let c = 0; c < cols; c++) tr.appendChild(Object.assign(document.createElement('td'), { innerHTML: '<br>' }));
+      tbody.appendChild(tr);
+    }
+    line.forEach((val, j) => {
+      const target = tr.children[c0 + j];
+      if(target) target.textContent = val;
+    });
+  });
+  mtClearSelection();
+  onMemoInput();
+  showToast(`${grid.length}줄 × ${grid[0].length}칸을 붙여넣었어요`);
+}
+
+// ── 셀 안 토글 / 선택 ────────────────────────────────────────
+const MEMO_CHIP_DEFAULT = '제안 중|진행 중|완료|보류';
+
+function memoInsertToggle() {
+  const el = document.getElementById('memoBodyInput');
+  if(!el) return;
+  el.focus();
+  document.execCommand('insertHTML', false,
+    '<span class="memo-toggle" contenteditable="false" data-on="1">ON</span>&nbsp;');
+  onMemoInput();
+}
+
+function memoInsertChip() {
+  const el = document.getElementById('memoBodyInput');
+  if(!el) return;
+  el.focus();
+  const opts = MEMO_CHIP_DEFAULT.split('|');
+  document.execCommand('insertHTML', false,
+    `<span class="memo-chip" contenteditable="false" data-opts="${escHtml(MEMO_CHIP_DEFAULT)}">${escHtml(opts[0])}</span>&nbsp;`);
+  onMemoInput();
+}
+
+function closeChipMenu() {
+  document.querySelectorAll('.memo-chip-menu').forEach(m => m.remove());
+}
+
+function memoOnBodyClick(e) {
+  const el = e.target instanceof Element ? e.target : null;
+  if(!el) return;
+
+  const toggle = el.closest('.memo-toggle');
+  if(toggle) {
+    e.preventDefault();
+    const on = toggle.dataset.on === '1';
+    toggle.dataset.on = on ? '0' : '1';
+    toggle.textContent = on ? 'OFF' : 'ON';
+    onMemoInput();
+    return;
+  }
+
+  const chip = el.closest('.memo-chip');
+  if(!chip) { closeChipMenu(); return; }
+  e.preventDefault();
+  closeChipMenu();
+
+  const opts = (chip.dataset.opts || MEMO_CHIP_DEFAULT).split('|').filter(Boolean);
+  const menu = document.createElement('div');
+  menu.className = 'memo-chip-menu';
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.textContent = o;
+    b.onclick = () => { chip.textContent = o; closeChipMenu(); onMemoInput(); };
+    menu.appendChild(b);
+  });
+  const edit = document.createElement('button');
+  edit.className = 'edit';
+  edit.textContent = '목록 수정…';
+  edit.onclick = () => {
+    const next = prompt('선택지를 쉼표로 구분해서 입력하세요', opts.join(', '));
+    closeChipMenu();
+    if(next === null) return;
+    const list = next.split(',').map(s => s.trim()).filter(Boolean);
+    if(!list.length) return;
+    chip.dataset.opts = list.join('|');
+    if(!list.includes(chip.textContent)) chip.textContent = list[0];
+    onMemoInput();
+  };
+  menu.appendChild(edit);
+
+  document.body.appendChild(menu);
+  const r = chip.getBoundingClientRect();
+  const mh = menu.offsetHeight;
+  menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
+  menu.style.top = (r.bottom + 4 + mh > window.innerHeight ? r.top - mh - 4 : r.bottom + 4) + 'px';
+}
+
 function memoInsertTable() {
   const el = document.getElementById('memoBodyInput');
   if(!el) return;
@@ -4831,7 +5111,21 @@ document.addEventListener('click', e => {
 // contenteditable input 이벤트 연결 (DOMContentLoaded 이후)
 document.addEventListener('DOMContentLoaded', () => {
   const bodyEl = document.getElementById('memoBodyInput');
-  if(bodyEl) bodyEl.addEventListener('input', onMemoInput);
+  if(!bodyEl) return;
+  bodyEl.addEventListener('input', onMemoInput);
+
+  // 표를 엑셀처럼 다루기 위한 연결.
+  // mousemove/up은 칸 밖으로 끌고 나가도 따라와야 해서 document에 건다.
+  bodyEl.addEventListener('mousedown', mtOnMouseDown);
+  document.addEventListener('mousemove', mtOnMouseMove);
+  document.addEventListener('mouseup', mtOnMouseUp);
+  bodyEl.addEventListener('keydown', mtOnKeyDown);
+  bodyEl.addEventListener('copy', mtOnCopy);
+  bodyEl.addEventListener('paste', mtOnPaste);
+  bodyEl.addEventListener('click', memoOnBodyClick);
+  document.addEventListener('mousedown', e => {
+    if(!(e.target instanceof Element) || !e.target.closest('.memo-chip-menu,.memo-chip')) closeChipMenu();
+  });
 });
 
 // ── Keyboard ───────────────────────────────────────────────────
