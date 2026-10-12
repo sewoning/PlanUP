@@ -760,6 +760,20 @@ tr.ct-drag-over{box-shadow:inset 0 2px 0 0 var(--blue);}
 .memo-toggle::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;}
 .memo-toggle[data-on="1"]{background:var(--success-bg);color:var(--green);}
 .memo-toggle:hover{filter:brightness(.96);}
+/* 선택지가 둘뿐일 때 쓰는 스위치. 표 안에서 한눈에 켜짐/꺼짐이 보여야 해서 모양을 준다 */
+.memo-sw{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;user-select:none;cursor:pointer;
+  height:21px;padding:0 7px 0 4px;border-radius:11px;background:var(--gray-200);color:var(--gray-400);
+  font-size:11.5px;font-weight:700;white-space:nowrap;font-family:inherit;line-height:1;}
+.memo-sw[data-on="1"]{background:var(--success-bg);color:var(--green);}
+.memo-sw-track{position:relative;width:24px;height:14px;border-radius:7px;background:rgba(0,0,0,.14);flex-shrink:0;}
+.memo-sw-track::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .14s;}
+.memo-sw[data-on="1"] .memo-sw-track{background:var(--green);}
+.memo-sw[data-on="1"] .memo-sw-track::after{transform:translateX(10px);}
+.memo-sw-more{opacity:.45;font-size:9px;padding:0 1px;}
+.memo-sw-more:hover{opacity:.9;}
+.memo-sw:hover{filter:brightness(.96);}
+
 .memo-chip{background:var(--gray-200);color:var(--gray-600);}
 /* 값에 따라 색이 달라야 표를 훑을 때 바로 읽힌다 */
 .memo-chip[data-tone="ok"]{background:var(--success-bg);color:var(--green);}
@@ -1398,7 +1412,7 @@ div.memo-textarea blockquote{border-left:3px solid var(--blue);padding:6px 14px;
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <div class="mtb-sep"></div>
-            <button class="mtb-btn mtb-chip-btn" onmousedown="event.preventDefault();memoInsertChip(event)" title="드롭다운 넣기 (라이브 ON/OFF · 진행 상태 · 검수…)">
+            <button class="mtb-btn mtb-chip-btn" onmousedown="event.preventDefault();memoInsertChip()" title="ON/OFF 스위치 넣기 (표 안에서 ▾ 눌러 다른 목록으로 바꿀 수 있어요)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="5"/><polyline points="15 11 17 13 19 11"/></svg>
             </button>
             <button class="mtb-btn" onmousedown="event.preventDefault();memoInsertTable()" title="표 넣기">
@@ -4604,56 +4618,69 @@ function memoChipApply(chip, value) {
   chip.dataset.tone = memoChipTone(value);
 }
 
+// 선택지가 둘뿐이면 스위치로, 셋 이상이면 드롭다운으로 보여준다.
+// 둘뿐인 걸 드롭다운으로 두면 누를 때마다 메뉴가 뜨는 게 번거롭고,
+// 셋 이상을 스위치로 두면 다음에 뭐가 올지 알 수 없다.
 function memoChipHtml(opts, value) {
-  const v = value != null ? value : opts.split('|')[0];
+  const list = opts.split('|');
+  const v = value != null ? value : list[0];
+  if(list.length === 2) {
+    return `<span class="memo-sw" contenteditable="false" data-opts="${escHtml(opts)}" data-on="${v === list[0] ? 1 : 0}">`
+         + `<span class="memo-sw-track"></span><span class="memo-sw-txt">${escHtml(v)}</span>`
+         + `<span class="memo-sw-more" title="목록 바꾸기">▾</span></span>&nbsp;`;
+  }
   return `<span class="memo-chip" contenteditable="false" data-opts="${escHtml(opts)}"`
        + ` data-tone="${memoChipTone(v)}">${escHtml(v)}</span>&nbsp;`;
 }
 
-// 툴바 버튼을 누르면 어떤 목록으로 넣을지 먼저 고른다.
-// 메뉴를 띄우는 사이 커서가 풀리므로, 누르던 자리를 기억해 뒀다가 되돌려 놓고 넣는다.
-function memoInsertChip(ev) {
-  const el = document.getElementById('memoBodyInput');
-  if(!el) return;
-  const sel = window.getSelection();
-  const saved = (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer))
-    ? sel.getRangeAt(0).cloneRange() : null;
+// 선택지를 바꾸면 모양 자체가 달라질 수 있어서(스위치 ↔ 드롭다운) 통째로 갈아끼운다
+function memoControlReplace(el, opts, value) {
+  const tmp = document.createElement('span');
+  tmp.innerHTML = memoChipHtml(opts, value).replace(/&nbsp;$/, '');
+  el.replaceWith(tmp.firstChild);
+  onMemoInput();
+}
 
+// 셀 안에서 목록을 바꾸는 메뉴 (프리셋 + 직접 입력)
+function memoOptsMenu(el, anchorRect) {
   closeChipMenu();
   const menu = document.createElement('div');
   menu.className = 'memo-chip-menu';
-
-  const insert = opts => {
-    closeChipMenu();
-    el.focus();
-    if(saved) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(saved); }
-    document.execCommand('insertHTML', false, memoChipHtml(opts));
-    onMemoInput();
-  };
-
   MEMO_CHIP_PRESETS.forEach(p => {
     const b = document.createElement('button');
     b.innerHTML = `${escHtml(p.label)} <span style="color:var(--gray-400);font-size:11px">${escHtml(p.opts.split('|').join(' · '))}</span>`;
-    b.onclick = () => insert(p.opts);
+    b.onclick = () => { closeChipMenu(); memoControlReplace(el, p.opts); };
     menu.appendChild(b);
   });
   const custom = document.createElement('button');
   custom.className = 'edit';
   custom.textContent = '직접 입력…';
   custom.onclick = () => {
+    const cur = (el.dataset.opts || MEMO_CHIP_DEFAULT).split('|');
     closeChipMenu();
-    const next = prompt('선택지를 쉼표로 구분해서 입력하세요', '제안 중, 진행 중, 완료');
+    const next = prompt('선택지를 쉼표로 구분해서 입력하세요', cur.join(', '));
     if(next === null) return;
     const list = next.split(',').map(s => s.trim()).filter(Boolean);
-    if(list.length) insert(list.join('|'));
+    if(list.length) memoControlReplace(el, list.join('|'));
   };
   menu.appendChild(custom);
 
   document.body.appendChild(menu);
-  const btn = ev && ev.currentTarget ? ev.currentTarget : null;
-  const r = btn ? btn.getBoundingClientRect() : { left: 20, bottom: 80, top: 80 };
-  menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
-  menu.style.top = (r.bottom + 4) + 'px';
+  const mh = menu.offsetHeight;
+  menu.style.left = Math.min(anchorRect.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
+  menu.style.top = (anchorRect.bottom + 4 + mh > window.innerHeight ? anchorRect.top - mh - 4 : anchorRect.bottom + 4) + 'px';
+}
+
+// 툴바 버튼을 누르면 어떤 목록으로 넣을지 먼저 고른다.
+// 메뉴를 띄우는 사이 커서가 풀리므로, 누르던 자리를 기억해 뒀다가 되돌려 놓고 넣는다.
+// 툴바 버튼은 넣기만 한다. 어떤 목록으로 쓸지는 표 안에서 ▾를 눌러 바꾼다 —
+// 넣기 전에 고르게 하면 일단 넣어보고 정하는 흐름이 막힌다.
+function memoInsertChip() {
+  const el = document.getElementById('memoBodyInput');
+  if(!el) return;
+  el.focus();
+  document.execCommand('insertHTML', false, memoChipHtml('ON|OFF'));
+  onMemoInput();
 }
 
 function closeChipMenu() {
@@ -4674,6 +4701,21 @@ function memoOnBodyClick(e) {
     return;
   }
 
+  // 스위치: ▾는 목록 바꾸기, 몸통은 그냥 뒤집기 (두 값뿐이라 메뉴를 띄울 이유가 없다)
+  const sw = el.closest('.memo-sw');
+  if(sw) {
+    e.preventDefault();
+    if(el.closest('.memo-sw-more')) { memoOptsMenu(sw, sw.getBoundingClientRect()); return; }
+    closeChipMenu();
+    const opts = (sw.dataset.opts || 'ON|OFF').split('|');
+    const on = sw.dataset.on === '1';
+    sw.dataset.on = on ? '0' : '1';
+    const txt = sw.querySelector('.memo-sw-txt');
+    if(txt) txt.textContent = on ? opts[1] : opts[0];
+    onMemoInput();
+    return;
+  }
+
   const chip = el.closest('.memo-chip');
   if(!chip) { closeChipMenu(); return; }
   e.preventDefault();
@@ -4690,17 +4732,9 @@ function memoOnBodyClick(e) {
   });
   const edit = document.createElement('button');
   edit.className = 'edit';
-  edit.textContent = '목록 수정…';
-  edit.onclick = () => {
-    const next = prompt('선택지를 쉼표로 구분해서 입력하세요', opts.join(', '));
-    closeChipMenu();
-    if(next === null) return;
-    const list = next.split(',').map(s => s.trim()).filter(Boolean);
-    if(!list.length) return;
-    chip.dataset.opts = list.join('|');
-    if(!list.includes(chip.textContent)) memoChipApply(chip, list[0]);
-    onMemoInput();
-  };
+  edit.textContent = '목록 바꾸기…';
+  // 스위치의 ▾와 같은 메뉴를 띄운다 (프리셋 + 직접 입력)
+  edit.onclick = () => memoOptsMenu(chip, chip.getBoundingClientRect());
   menu.appendChild(edit);
 
   document.body.appendChild(menu);
