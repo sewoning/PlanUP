@@ -4567,6 +4567,52 @@ function workStatusTone(v) {
 
 let workFilter = 'all';   // 'all' | 상태값
 
+// 중요도순 정렬. 지금 돌고 있는 건(라이브 완료)이 맨 앞이고, 그 다음이 내가 손대야 하는 것,
+// 그 다음이 굴러가는 중인 것 순서다. 끝난 건(종료)은 볼 일이 적어서 맨 뒤로 보낸다.
+function workPriority(status) {
+  const v = String(status || '').trim();
+  if(/라이브\s*완료/.test(v)) return 1;   // 지금 집행 중인 건
+  const tone = workStatusTone(v);
+  if(tone === 'todo') return 2;           // 붉은색 — 소재 수급 필요, 최종 확인 필요 등
+  if(tone === 'doing') return 3;          // 노란색 — 제안 중
+  if(/종료/.test(v)) return 6;            // 끝난 건
+  if(tone === 'done') return 4;           // 제안 완료 등 나머지 완료
+  return 5;                               // 미정
+}
+
+// 기간은 "10/7~10/13"처럼 적히기도 하고 "11월 중순~12월 중순"이나 "미정"이기도 하다.
+// 읽히는 만큼만 날짜로 바꾸고, 못 읽으면 맨 뒤로 보낸다 (정렬에서 빠지는 게 아니라 끝으로).
+function workPeriodStart(period) {
+  const t = String(period || '').trim();
+  if(!t || /^미정$/.test(t)) return null;
+  const head = t.split(/[~∼～–—]/)[0];   // 시작 쪽만 본다
+  const y = new Date().getFullYear();
+
+  const iso = head.match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(iso) return Number(iso[1]) * 10000 + Number(iso[2]) * 100 + Number(iso[3]);
+
+  const md = head.match(/(\d{1,2})\s*[\/.\-]\s*(\d{1,2})/);
+  if(md) return y * 10000 + Number(md[1]) * 100 + Number(md[2]);
+
+  // "11월 중순" 같은 표현 — 초=1일, 중순=15일, 말=25일로 친다
+  const mon = head.match(/(\d{1,2})\s*월\s*(초|상순|중순|말|하순)?/);
+  if(mon) {
+    const d = /말|하순/.test(mon[2] || '') ? 25 : /중순/.test(mon[2] || '') ? 15 : 1;
+    return y * 10000 + Number(mon[1]) * 100 + d;
+  }
+  return null;
+}
+
+const WORK_SORTS = ['manual', 'priority', 'period_asc', 'period_desc'];
+function workSortMode() {
+  const v = localStorage.getItem('planup_work_sort');
+  return WORK_SORTS.includes(v) ? v : 'manual';
+}
+function setWorkSort(mode) {
+  try { localStorage.setItem('planup_work_sort', mode); } catch(e) {}
+  renderWorkRows();
+}
+
 function renderWorkView() {
   if(!canUseWorkSheet()) return;
   renderWorkRows();
@@ -4574,11 +4620,26 @@ function renderWorkView() {
 
 function workFiltered() {
   const q = (document.getElementById('workSearch')?.value || '').trim().toLowerCase();
-  return (state.works || []).filter(w => {
+  const rows = (state.works || []).filter(w => {
     if(workFilter !== 'all' && (w.status || '미정') !== workFilter) return false;
     if(!q) return true;
     return [w.name, w.client, w.period, w.status, w.note]
       .some(v => (v || '').toLowerCase().includes(q));
+  });
+  const mode = workSortMode();
+  if(mode === 'manual') return rows;
+  // 어느 정렬이든 같은 값끼리는 내가 끌어놓은 순서가 그대로 남는다 (정렬이 안정적이라 가능)
+  if(mode === 'priority') {
+    return [...rows].sort((a, b) => workPriority(a.status) - workPriority(b.status));
+  }
+  const dir = mode === 'period_desc' ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    const pa = workPeriodStart(a.period), pb = workPeriodStart(b.period);
+    // 날짜를 못 읽은 건(미정 등)은 방향과 무관하게 항상 맨 뒤
+    if(pa === null && pb === null) return 0;
+    if(pa === null) return 1;
+    if(pb === null) return -1;
+    return (pa - pb) * dir;
   });
 }
 
@@ -4598,6 +4659,14 @@ function renderWorkRows() {
   });
   filters.innerHTML = `<button class="cpf-tab${workFilter === 'all' ? ' active' : ''}" onclick="setWorkFilter('all')">전체 <span class="cpf-count">${(state.works || []).length}</span></button>`
     + keys.map(k => `<button class="cpf-tab${workFilter === k ? ' active' : ''}" onclick="setWorkFilter('${escHtml(k).replace(/'/g, "\\'")}')">${escHtml(k)} <span class="cpf-count">${counts[k]}</span></button>`).join('');
+
+  const sortMode = workSortMode();
+  const periodOn = sortMode === 'period_asc' || sortMode === 'period_desc';
+  const periodLabel = sortMode === 'period_asc' ? '기간순 ↑' : sortMode === 'period_desc' ? '기간순 ↓' : '기간순';
+  filters.innerHTML += `<span style="color:var(--gray-300);margin:0 2px">|</span>`
+    + `<button class="cpf-tab${sortMode === 'manual' ? ' active' : ''}" onclick="setWorkSort('manual')" title="끌어서 정한 순서">기본순</button>`
+    + `<button class="cpf-tab${sortMode === 'priority' ? ' active' : ''}" onclick="setWorkSort('priority')" title="라이브 완료 → 손대야 할 것(붉은색) → 진행 중(노란색) → 제안 완료 → 미정 → 종료">중요도순</button>`
+    + `<button class="cpf-tab${periodOn ? ' active' : ''}" onclick="setWorkSort('${sortMode === 'period_asc' ? 'period_desc' : 'period_asc'}')" title="시작일 기준 · 누를 때마다 빠른 순/늦은 순 전환 (미정은 항상 맨 뒤)">${periodLabel}</button>`;
 
   const rows = workFiltered();
   if(!(state.works || []).length) {
@@ -4635,7 +4704,10 @@ function renderWorkRows() {
 let workDragId = null;
 
 function workBindRowDrag() {
+  // 중요도순으로 보는 중엔 끌어봐야 정렬에 덮인다 — 아예 손잡이를 내린다
+  const canDrag = workSortMode() === 'manual';
   document.querySelectorAll('#workTableBody .work-row').forEach(tr => {
+    if(!canDrag) { const h = tr.querySelector('.work-drag'); if(h) h.remove(); return; }
     const handle = tr.querySelector('.work-drag');
     if(handle) {
       handle.draggable = true;
